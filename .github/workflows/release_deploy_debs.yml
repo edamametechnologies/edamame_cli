@@ -306,6 +306,9 @@ jobs:
           # Import GPG key
           echo "$GPG_PRIVATE_KEY_B64" | base64 -d | gpg --batch --import
 
+          # Export public key
+          gpg --batch --yes --export --armor > repo/dists/stable/public.key
+
           # Create or update Release file
           mkdir -p repo/dists/stable
           echo "Origin: EDAMAME" > repo/dists/stable/Release
@@ -348,9 +351,13 @@ jobs:
             fi
           done
 
-          # Upload updated metadata
+          # Upload updated metadata and public key
           aws s3 cp repo/dists/ s3://edamame/repo/dists/ \
             --acl public-read --recursive
+
+          # Create a more friendly URL for the public key
+          aws s3 cp repo/dists/stable/public.key s3://edamame/repo/public.key \
+            --acl public-read
 
       - name: Verify uploads
         run: |
