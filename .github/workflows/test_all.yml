@@ -1,0 +1,250 @@
+name: Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'dev'
+      - 'main'
+    paths-ignore:
+      - '.github/workflows/**'
+      - 'Makefile'
+
+# Auto cancel previous runs if they were not completed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Declare default permissions as read only.
+permissions: read-all
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    env:
+      EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
+      PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
+      EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
+      EDAMAME_CORE_TARGET: ${{ secrets.EDAMAME_CORE_TARGET }}
+      EDAMAME_CORE_SERVER: ${{ secrets.EDAMAME_CORE_SERVER }}
+      EDAMAME_CA_PEM: ${{ secrets.EDAMAME_CA_PEM }}
+      EDAMAME_CLIENT_PEM: ${{ secrets.EDAMAME_CLIENT_PEM }}
+      EDAMAME_CLIENT_KEY: ${{ secrets.EDAMAME_CLIENT_KEY }}
+      EDAMAME_SERVER_PEM: ${{ secrets.EDAMAME_SERVER_PEM }}
+      EDAMAME_SERVER_KEY: ${{ secrets.EDAMAME_SERVER_KEY }}
+      EDAMAME_CLIENT_CA_PEM: ${{ secrets.EDAMAME_CLIENT_CA_PEM }}
+      LAMBDA_SIGNATURE: ${{ secrets.LAMBDA_SIGNATURE }}
+
+    steps:
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v0
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}
+          checkout: true
+          # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_for_https: true
+
+      - name: Configure Git Authentication to import private crates
+        run: |
+          git config --global user.email "dev@edamame.tech"
+          git config --global user.name "EDAMAME Dev"
+          git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
+      - name: Install additional packages w/ apt for linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # Install build dependencies
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          # For packet capture
+          sudo apt-get install -y libpcap-dev
+
+      - name: Install additional packages w/ Homebrew for macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install protobuf
+          brew install wget
+
+      - name: Setup .NET 8.0 for Windows
+        if: matrix.os == 'windows-latest'
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup MS Store CLI for Windows
+        if: matrix.os == 'windows-latest'
+        uses: microsoft/setup-msstore-cli@v1
+
+      - name: Install additional packages w/ Chocolatey for Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install protoc wget
+          dotnet tool install --global AzureSignTool
+   
+      - name: Set environment variables
+        shell: bash
+        run: |
+            echo "BINARY=edamame_cli${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_ENV
+            echo "SUDO_CMD=${{ matrix.os != 'windows-latest' && 'sudo' || '' }}" >> $GITHUB_ENV
+            echo "KEYCHAIN_PATH=/tmp/app-signing.keychain-db" >> $GITHUB_ENV
+  
+      - name: Build application
+        shell: bash
+        run: |
+          cargo build --release
+  
+      - name: Signing for macOS
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          # Create certificate files from secrets base64
+          echo ${{ secrets.APPLE_DEVELOPMENT_CER }} | base64 --decode > certificate_dev.cer
+          echo ${{ secrets.APPLE_DEVELOPMENT_KEY }} | base64 --decode > certificate_dev.key
+          echo ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_CER }} | base64 --decode > certificate_installer.cer
+          echo ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_KEY }} | base64 --decode > certificate_installer.key
+          echo ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CER }} | base64 --decode > certificate_application.cer
+          echo ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_KEY }} | base64 --decode > certificate_application.key
+          
+          # Create p12 file
+          openssl pkcs12 -export -name zup -in certificate_dev.cer -inkey certificate_dev.key -passin pass:${{ secrets.APPLE_P12_PASSWORD }} -out certificate_dev.p12 -passout pass:${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+          openssl pkcs12 -export -name zup -in certificate_installer.cer -inkey certificate_installer.key -passin pass:${{ secrets.APPLE_P12_PASSWORD }} -out certificate_installer.p12 -passout pass:${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+          openssl pkcs12 -export -name zup -in certificate_application.cer -inkey certificate_application.key -passin pass:${{ secrets.APPLE_P12_PASSWORD }} -out certificate_application.p12 -passout pass:${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        
+          # Configure Keychain
+          security create-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" $KEYCHAIN_PATH
+          
+          # Import certificates on Keychain
+          security import certificate_dev.p12 -P "${{ secrets.APPLE_P12_PASSWORD }}" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security import certificate_installer.p12 -P "${{ secrets.APPLE_P12_PASSWORD }}" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security import certificate_application.p12 -P "${{ secrets.APPLE_P12_PASSWORD }}" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+
+          # Verify Keychain
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Sign + hardened runtime
+          ./macos/sign.sh ./target/release/$BINARY
+
+      - name: Signing for Windows
+        if: matrix.os == 'windows-latest'
+        # We can't use bash here, as the AzureSignTool is a .NET tool
+        run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/release/edamame_cli.exe
+
+      - name: Run tests
+        id: tests
+        shell: bash
+        run: |
+          # Stop posture
+          echo "Stopping posture"
+          ~/$BINARY stop
+          sleep 10
+
+          # Aggressively kill in case it's still running
+          echo "Killing posture"
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            taskkill -IM edamame_cli.exe -F || true
+          else
+            $SUDO_CMD killall -9 edamame_cli || true
+          fi
+          sleep 5
+
+          # Remove it along with the logs
+          $SUDO_CMD rm -f ~/edamame_cli*
+
+          # Install the new binary
+          cp -f ./target/release/$BINARY ~/$BINARY
+
+          # Check home directory
+          ls -la ~/
+
+          # Get core info
+          echo "Core info:"
+          ~/$BINARY -v get-core-info
+
+          # Get core version
+          echo "Core version:"
+          ~/$BINARY -v get-core-version
+
+          # Help
+          echo "Help:"
+          ~/$BINARY -v help
+          
+          # Perform a simple score computation
+          echo "Score:"
+          $SUDO_CMD ~/$BINARY -v score
+          
+          # Perform a lanscan
+          echo "Lanscan:"
+          $SUDO_CMD ~/$BINARY -v lanscan
+          
+          # Perform a capture
+          echo "Capture:"
+          $SUDO_CMD ~/$BINARY -v capture 5
+
+          # Get device info
+          echo "Device info:"
+          $SUDO_CMD ~/$BINARY -v get-device-info
+          
+          # Get system info
+          echo "System info:"
+          $SUDO_CMD ~/$BINARY -v get-system-info
+
+          # Start the new binary in the background
+          $SUDO_CMD ~/$BINARY -v start ${{ vars.EDAMAME_POSTURE_USER }} ${{ vars.EDAMAME_POSTURE_DOMAIN }} ${{ secrets.EDAMAME_POSTURE_PIN }} ${{ github.run_id }} true "github_ubuntu"
+          
+          # Leave time for the binary to start
+          sleep 10
+
+          # Check status
+          echo "Status:"
+          ~/$BINARY -v status
+
+          # Build ourselves again to generate build activity
+          make clean
+          cargo build --release
+
+          # Check status
+          echo "Status:"
+          ~/$BINARY -v status
+
+          # Check sessions
+          echo "Sessions:"
+          # Can fail because of whitelist conformance, ignore it
+          ~/$BINARY -v get-sessions false false || true
+          
+          # Check logs
+          echo "Logs:"
+          ~/$BINARY -v logs
+          echo "Test completed"
+        continue-on-error: true
+
+      - name: Slack alerts
+        if: steps.tests.outcome != 'success'
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: "Tests ran in ${{ github.workflow }} for ${{ github.repository }} for ${{ runner.os }} on branch ${{ github.ref }} failed: see https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      - name: Dump the logs
+        shell: bash
+        run: |
+          ~/$BINARY logs
+
+      - name: Fail job if tests failed
+        if: steps.tests.outcome != 'success'
+        run: |
+          echo "Forcing job to fail because tests did not succeed."
+          exit 1
