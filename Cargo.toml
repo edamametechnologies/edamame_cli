@@ -32,7 +32,7 @@ envcrypt = "0.5.0"
 cargo-deb = "2.7.0"
 # See cargo-deb crate for configuration: https://crates.io/crates/cargo-deb
 [package.metadata.deb]
-name = "edamame_cli"
+name = "edamame-cli"
 maintainer = "EDAMAME Technologies"
 copyright = "EDAMAME Technologies"
 license-file = ["LICENSE", "0"]
