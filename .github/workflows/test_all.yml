@@ -145,7 +145,7 @@ jobs:
         id: tests
         shell: bash
         run: |
-          cargo test
+          make test
         continue-on-error: true
 
       - name: Slack alerts
@@ -156,11 +156,6 @@ jobs:
           slack-message: "Tests ran in ${{ github.workflow }} for ${{ github.repository }} for ${{ runner.os }} on branch ${{ github.ref }} failed: see https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-
-      - name: Dump the logs
-        shell: bash
-        run: |
-          ~/$BINARY logs
 
       - name: Fail job if tests failed
         if: steps.tests.outcome != 'success'
