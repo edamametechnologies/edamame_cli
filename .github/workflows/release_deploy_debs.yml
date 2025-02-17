@@ -280,21 +280,53 @@ jobs:
         run: |
           for ARCH in amd64 arm64 armhf i386; do
             DEB_DIR="repo/pool/main/$ARCH"
+            PACKAGES_FILE="repo/dists/stable/main/binary-$ARCH/Packages"
             if [ -d "$DEB_DIR" ] && [ -n "$(ls $DEB_DIR/*.deb 2>/dev/null)" ]; then
               echo "Processing new packages for $ARCH..."
+              
               # Verify .deb files are valid
               for deb in $DEB_DIR/*.deb; do
                 dpkg-deb -I "$deb" || echo "Warning: Invalid .deb file: $deb"
               done
+
+              # Create temporary files
+              TEMP_NEW=$(mktemp)
+              TEMP_MERGED=$(mktemp)
+              
               # Generate stanzas for new packages
-              dpkg-scanpackages --multiversion "$DEB_DIR" > "new-packages-$ARCH"
-              # Verify generated stanzas
-              [ -s "new-packages-$ARCH" ] || echo "Warning: No package stanzas generated for $ARCH"
-              # Append to existing Packages file
-              cat "new-packages-$ARCH" >> "repo/dists/stable/main/binary-$ARCH/Packages"
-              rm "new-packages-$ARCH"
+              dpkg-scanpackages --multiversion "$DEB_DIR" > "$TEMP_NEW"
+              
+              # Process existing and new packages to remove duplicates
+              # Using awk to identify package stanzas and keep the latest version
+              awk -v RS='\n\n' -v ORS='\n\n' '
+                {
+                  # Extract package name and version
+                  pkg = version = ""
+                  for (i=1; i<=NF; i++) {
+                    if ($i ~ /^Package:/) pkg = substr($i, 10)
+                    if ($i ~ /^Version:/) version = substr($i, 10)
+                  }
+                  if (pkg && version) {
+                    key = pkg "-" version
+                    if (!(key in seen) || $0 > seen[key]) {
+                      seen[key] = $0
+                    }
+                  }
+                }
+                END {
+                  for (key in seen) {
+                    print seen[key]
+                  }
+                }' "$PACKAGES_FILE" "$TEMP_NEW" > "$TEMP_MERGED"
+              
+              # Replace the old Packages file with merged content
+              mv "$TEMP_MERGED" "$PACKAGES_FILE"
+              
+              # Clean up temp files
+              rm -f "$TEMP_NEW"
+              
               # Compress the updated Packages file
-              gzip -9f "repo/dists/stable/main/binary-$ARCH/Packages"
+              gzip -9f "$PACKAGES_FILE"
             fi
           done
 
