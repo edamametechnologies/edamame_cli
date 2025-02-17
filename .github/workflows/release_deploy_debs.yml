@@ -302,14 +302,34 @@ jobs:
               echo "Packages file for $ARCH"
               cat "$TEMP_NEW"
 
-              # Just merge the two files
-              cat "$PACKAGES_FILE" "$TEMP_NEW" > "$TEMP_MERGED"
-              
-              # Replace the old Packages file with merged content
-              mv "$TEMP_MERGED" "$PACKAGES_FILE"
+              # Merge the old and new Packages data
+              cat  "$TEMP_NEW" "$PACKAGES_FILE" > "$TEMP_MERGED"
+                          
+              # Remove duplicate packages (newest version wins)
+              awk 'BEGIN { RS=""; ORS="\n\n" }
+              {
+                pkg=""; ver="";
+                n = split($0, lines, "\n");
+                for(i=1;i<=n;i++){
+                  if(lines[i] ~ /^Package:[ \t]*/) {
+                    pkg = lines[i];
+                    sub(/^Package:[ \t]*/, "", pkg);
+                  }
+                  if(lines[i] ~ /^Version:[ \t]*/) {
+                    ver = lines[i];
+                    sub(/^Version:[ \t]*/, "", ver);
+                  }
+                }
+                if(pkg != "" && ver != ""){
+                  key = pkg " " ver;
+                  if (!seen[key]++) print $0;
+                } else {
+                  print $0;
+                }
+              }' "$TEMP_MERGED" > "$PACKAGES_FILE"
               
               # Clean up temp files
-              rm -f "$TEMP_NEW"
+              rm -f "$TEMP_NEW" "$TEMP_MERGED"
 
               echo "Final Packages file for $ARCH"
               cat "$PACKAGES_FILE"
