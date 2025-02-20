@@ -1,4 +1,4 @@
-.PHONY: clean macos macos_release macos_debug macos_publish windows windows_debug windows_release windows_publish linux linux_debug linux_release linux_publish upgrade unused_dependencies format test
+.PHONY: clean macos macos_release macos_debug macos_publish windows windows_debug windows_release windows_publish linux linux_debug linux_release linux_publish upgrade unused_dependencies format test completions
 
 # Import and export env for edamame_core and edamame_foundation
 -include ../secrets/lambda-signature.env
@@ -45,7 +45,14 @@ linux_debug:
 linux_release:
 	cargo build --release
 
-linux_publish: linux_release
+completions:
+	mkdir -p ./completions
+	./target/release/edamame_cli completion bash > ./completions/edamame_cli.bash
+	./target/release/edamame_cli completion fish > ./completions/edamame_cli.fish
+	./target/release/edamame_cli completion zsh > ./completions/_edamame_cli
+
+linux_publish: linux_release completions
+	cargo deb
 
 linux_alpine: linux_alpine_release
 
