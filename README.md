@@ -15,7 +15,7 @@ edamame_cli [OPTIONS] <COMMAND>
 
 # Available commands:
 list-methods      # List all available RPC methods
-list-api-infos    # List information about all available RPC methods
+list-method-infos # List information about all available RPC methods
 get-method-info   # Get information about a specific RPC method
 interactive       # Enter interactive mode
 rpc               # Call a specific RPC method
@@ -23,6 +23,7 @@ rpc               # Call a specific RPC method
 # Examples:
 edamame_cli list-methods
 edamame_cli get-method-info <METHOD>
+edamame_cli list-method-infos
 edamame_cli rpc <METHOD> '[json_arguments]'     # JSON arguments
 edamame_cli interactive                         # Enter interactive shell mode
 ```

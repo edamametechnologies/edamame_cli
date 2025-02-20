@@ -1,6 +1,6 @@
 [package]
 name = "edamame_cli"
-version = "0.9.15"
+version = "0.9.16"
 edition = "2021"
 
 [features]
@@ -23,6 +23,7 @@ lazy_static = "1.4.0"
 
 # CLI
 clap = "4.1.1"
+clap_complete = "4.5.1"
 
 # Encrypted env (weak)
 envcrypt = "0.5.0"
@@ -40,9 +41,15 @@ license-file = ["LICENSE", "0"]
 maintainer-scripts = "debian/"
 assets = [
     { source = "target/release/edamame_cli", dest = "usr/bin/edamame_cli", mode = "0755" },
+    # Add completion files for different shells
+    { source = "completions/edamame_cli.bash", dest = "usr/share/bash-completion/completions/edamame_cli", mode = "0644" },
+    { source = "completions/edamame_cli.fish", dest = "usr/share/fish/vendor_completions.d/edamame_cli.fish", mode = "0644" },
+    { source = "completions/_edamame_cli", dest = "usr/share/zsh/vendor-completions/_edamame_cli", mode = "0644" },
 ]
 
 [build-dependencies]
 
 # Build metadata
+# Easier to generate completions with the cli once it's built
+# clap_complete = "4.5.1"
 vergen-gitcl = { version = "1.0.5", features = [ "build", "cargo", "rustc", "si" ] }

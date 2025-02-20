@@ -106,7 +106,10 @@ jobs:
 
       # Build application for Linux using cross
       - name: Build application for Linux using cross
-        run: cross build --release --target ${{ matrix.target }}
+        run: |
+          cross build --release --target ${{ matrix.target }}
+          # Copy the binary to the release folder which is expected by many tools
+          cp target/${{ matrix.target }}/release/edamame_cli target/release/edamame_cli
 
       - name: Package Debian package with cargo deb
         run: |

@@ -1,4 +1,6 @@
+use crate::CORE_VERSION;
 use clap::{arg, ArgAction, Command};
+use clap_complete::{generate, Generator, Shell};
 use edamame_core::api::api_core::*;
 use edamame_core::api::api_rpc::*;
 use envcrypt::envc;
@@ -15,13 +17,27 @@ lazy_static! {
         envc!("EDAMAME_CLIENT_KEY").trim_matches('"').to_string();
 }
 
-fn run() {
+fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
+    generate(gen, cmd, cmd.get_name().to_string(), &mut io::stdout());
+}
+
+pub fn build_cli() -> Command {
+    // Turn it into a &'static str by leaking it
     let core_version_runtime: String = CORE_VERSION.to_string();
     let core_version_static: &'static str = Box::leak(core_version_runtime.into_boxed_str());
-    let matches = Command::new("edamame_cli")
+
+    Command::new("edamame_cli")
         .version(core_version_static)
-        .author("Frank Lyonnet")
+        .author("EDAMAME Technologies")
         .about("CLI RPC interface to edamame_core")
+        .subcommand(
+            Command::new("completion")
+                .about("Generate shell completion scripts")
+                .arg(
+                    arg!(<SHELL> "The shell to generate completions for")
+                        .value_parser(clap::value_parser!(Shell)),
+                ),
+        )
         .arg(
             arg!(
                 -v --verbose ... "Verbosity level (-v: info, -vv: debug, -vvv: trace)"
@@ -32,10 +48,6 @@ fn run() {
         )
         .subcommand(Command::new("list-methods").about("List all available RPC methods"))
         .subcommand(
-            Command::new("list-api-infos")
-                .about("List information about all available RPC methods"),
-        )
-        .subcommand(
             Command::new("get-method-info")
                 .about("Get information about a specific RPC method")
                 .arg(
@@ -43,6 +55,10 @@ fn run() {
                         .required(true)
                         .value_parser(clap::value_parser!(String)),
                 ),
+        )
+        .subcommand(
+            Command::new("list-method-infos")
+                .about("List information about all available RPC methods"),
         )
         .subcommand(Command::new("interactive").about("Enter interactive mode"))
         .subcommand(
@@ -59,7 +75,18 @@ fn run() {
                         .value_parser(clap::value_parser!(String)),
                 ),
         )
-        .get_matches();
+}
+
+fn run() {
+    let mut cmd = build_cli();
+    let matches = cmd.clone().get_matches();
+
+    // Handle completion subcommand before other commands
+    if let Some(("completion", sub_matches)) = matches.subcommand() {
+        let shell = sub_matches.get_one::<Shell>("SHELL").unwrap();
+        print_completions(*shell, &mut cmd);
+        return;
+    }
 
     // Check for verbose flag count
     let verbose_level = matches.get_count("verbose");
@@ -87,11 +114,11 @@ fn run() {
 
     match matches.subcommand() {
         Some(("list-methods", _)) => handle_list_methods(verbose),
-        Some(("get-api-info", args)) => handle_get_api_info(
+        Some(("get-method-info", args)) => handle_get_method_info(
             args.get_one::<String>("METHOD").unwrap().to_string(),
             verbose,
         ),
-        Some(("list-api-infos", _)) => handle_list_api_infos(verbose),
+        Some(("list-method-infos", _)) => handle_list_method_infos(verbose),
         Some(("rpc", args)) => handle_rpc(
             args.get_one::<String>("METHOD").unwrap().to_string(),
             match args.get_one::<String>("JSON_ARGS_ARRAY") {
@@ -181,7 +208,7 @@ fn handle_list_methods(verbose: bool) {
     println!("Available RPC methods: {:?}", methods);
 }
 
-fn handle_get_api_info(method: String, verbose: bool) {
+fn handle_get_method_info(method: String, verbose: bool) {
     initialize_core(verbose);
 
     let info = match rpc_get_api_info(
@@ -200,7 +227,7 @@ fn handle_get_api_info(method: String, verbose: bool) {
     println!("API info: {:?}", info);
 }
 
-fn handle_list_api_infos(verbose: bool) {
+fn handle_list_method_infos(verbose: bool) {
     initialize_core(verbose);
 
     // Get the list of all methods
