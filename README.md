@@ -24,6 +24,6 @@ rpc               # Call a specific RPC method
 edamame_cli list-methods
 edamame_cli get-method-info <METHOD>
 edamame_cli list-method-infos
-edamame_cli rpc <METHOD> '[json_arguments]'     # JSON arguments
+edamame_cli rpc <METHOD> '[JSON_ARGS_ARRAY]'     # JSON arguments
 edamame_cli interactive                         # Enter interactive shell mode
 ```
