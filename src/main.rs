@@ -70,7 +70,7 @@ pub fn build_cli() -> Command {
                         .value_parser(clap::value_parser!(String)),
                 )
                 .arg(
-                    arg!(<JSON_ARGS_ARRAY> "JSON arguments array")
+                    arg!([JSON_ARGS_ARRAY] "JSON arguments array")
                         .required(false)
                         .value_parser(clap::value_parser!(String)),
                 ),
