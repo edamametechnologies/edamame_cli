@@ -6,6 +6,10 @@ use edamame_core::api::api_rpc::*;
 use envcrypt::envc;
 use lazy_static::lazy_static;
 use std::io::{self, BufRead, Write};
+use std::process::exit;
+
+const ERROR_CODE_SERVER_ERROR: i32 = 12;
+const ERROR_CODE_PARAM: i32 = 3;
 
 lazy_static! {
     pub static ref EDAMAME_TARGET: String =
@@ -112,7 +116,7 @@ fn run() {
 
     let verbose = verbose_level > 0;
 
-    match matches.subcommand() {
+    let exit_code = match matches.subcommand() {
         Some(("list-methods", _)) => handle_list_methods(verbose),
         Some(("get-method-info", args)) => handle_get_method_info(
             args.get_one::<String>("METHOD").unwrap().to_string(),
@@ -127,15 +131,21 @@ fn run() {
             },
             verbose,
         ),
-        Some(("interactive", _)) => interactive_mode(verbose),
+        Some(("interactive", _)) => {
+            interactive_mode(verbose);
+            0
+        }
         _ => {
             initialize_core(verbose);
             eprintln!("Invalid command, use --help for more information");
+            ERROR_CODE_PARAM
         }
-    }
+    };
 
     // Properly terminate the core
     terminate(false);
+
+    exit(exit_code);
 }
 
 fn initialize_core(console_logging: bool) {
@@ -172,7 +182,7 @@ fn initialize_core(console_logging: bool) {
     );
 }
 
-fn handle_rpc(method: String, json_args_array: String, verbose: bool) {
+fn handle_rpc(method: String, json_args_array: String, verbose: bool) -> i32 {
     initialize_core(verbose);
 
     // Convert the json_args_array to a Vec<String>
@@ -186,11 +196,15 @@ fn handle_rpc(method: String, json_args_array: String, verbose: bool) {
         &EDAMAME_TARGET,
     ) {
         Ok(result) => println!("Result: {:?}", result),
-        Err(e) => eprintln!(">>>> Error calling RPC method: {:?}", e),
+        Err(e) => {
+            eprintln!(">>>> Error calling RPC method: {:?}", e);
+            return ERROR_CODE_SERVER_ERROR;
+        }
     }
+    0
 }
 
-fn handle_list_methods(verbose: bool) {
+fn handle_list_methods(verbose: bool) -> i32 {
     initialize_core(verbose);
 
     let methods = match rpc_get_api_methods(
@@ -202,13 +216,14 @@ fn handle_list_methods(verbose: bool) {
         Ok(methods) => methods,
         Err(e) => {
             eprintln!(">>>> Error getting API methods: {:?}", e);
-            return;
+            return ERROR_CODE_SERVER_ERROR;
         }
     };
     println!("Available RPC methods: {:?}", methods);
+    0
 }
 
-fn handle_get_method_info(method: String, verbose: bool) {
+fn handle_get_method_info(method: String, verbose: bool) -> i32 {
     initialize_core(verbose);
 
     let info = match rpc_get_api_info(
@@ -221,13 +236,14 @@ fn handle_get_method_info(method: String, verbose: bool) {
         Ok(info) => info,
         Err(e) => {
             eprintln!(">>>> Error getting API info: {:?}", e);
-            return;
+            return ERROR_CODE_SERVER_ERROR;
         }
     };
     println!("API info: {:?}", info);
+    0
 }
 
-fn handle_list_method_infos(verbose: bool) {
+fn handle_list_method_infos(verbose: bool) -> i32 {
     initialize_core(verbose);
 
     // Get the list of all methods
@@ -240,7 +256,7 @@ fn handle_list_method_infos(verbose: bool) {
         Ok(methods) => methods,
         Err(e) => {
             eprintln!(">>>> Error getting API methods: {:?}", e);
-            return;
+            return ERROR_CODE_SERVER_ERROR;
         }
     };
 
@@ -262,6 +278,7 @@ fn handle_list_method_infos(verbose: bool) {
 
         println!("Method: {}, Info: {:?}", method, info);
     }
+    0
 }
 
 fn interactive_mode(verbose: bool) {
