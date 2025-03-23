@@ -25,8 +25,21 @@ edamame_cli list-methods
 edamame_cli get-method-info <METHOD>
 edamame_cli list-method-infos
 edamame_cli rpc <METHOD> '[JSON_ARGS_ARRAY]'     # JSON arguments
+edamame_cli rpc <METHOD> '[JSON_ARGS_ARRAY]' --pretty  # Pretty-print JSON response
 edamame_cli interactive                         # Enter interactive shell mode
 ```
+
+## RPC Command
+
+The `rpc` command allows calling specific methods with JSON arguments:
+
+```bash
+edamame_cli rpc <METHOD> '[JSON_ARGS_ARRAY]'
+```
+
+### Options
+
+- `--pretty` - Format the JSON response with proper indentation and without escape characters
 
 ## EDAMAME Ecosystem
 

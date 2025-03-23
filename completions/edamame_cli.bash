@@ -257,7 +257,7 @@ _edamame_cli() {
             return 0
             ;;
         edamame_cli__rpc)
-            opts="-v -h --verbose --help <METHOD> [JSON_ARGS_ARRAY]"
+            opts="-v -h --pretty --verbose --help <METHOD> [JSON_ARGS_ARRAY]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

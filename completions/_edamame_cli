@@ -74,6 +74,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (rpc)
 _arguments "${_arguments_options[@]}" : \
+'--pretty[Pretty print the JSON response]' \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '-h[Print help]' \

@@ -676,9 +676,9 @@ dependencies = [
 
 [[package]]
 name = "blake3"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "675f87afced0413c9bb02843499dbbd3882a237645883f71a2b59644a6d2f753"
+checksum = "b17679a8d69b6d7fd9cd9801a536cec9fa5e5970b69f9d4747f70b39b031f5e7"
 dependencies = [
  "arrayref",
  "arrayvec",
@@ -1568,7 +1568,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_cli"
-version = "0.9.20"
+version = "0.9.21"
 dependencies = [
  "cargo-deb",
  "clap",
@@ -1583,8 +1583,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.20"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#0be1285628c517a9ecd9a9ed276b53d8397bbbec"
+version = "0.9.21"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1649,13 +1648,12 @@ dependencies = [
  "wez-mdns",
  "whoami",
  "winapi",
- "windows 0.61.0",
+ "windows 0.61.1",
 ]
 
 [[package]]
 name = "edamame_foundation"
-version = "0.9.20"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#e03de16117dc94a07f95c375be86564c4fa963b8"
+version = "0.9.21"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1715,7 +1713,7 @@ dependencies = [
  "users",
  "uuid",
  "wez-mdns",
- "windows 0.61.0",
+ "windows 0.61.1",
  "zip",
 ]
 
@@ -4756,9 +4754,9 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "reqwest"
-version = "0.12.14"
+version = "0.12.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "989e327e510263980e231de548a33e63d34962d29ae61b467389a1a09627a254"
+checksum = "d19c46a6fdd48bc4dab94b6103fccc55d34c67cc0ad04653aad4ea2a07cd7bbb"
 dependencies = [
  "async-compression",
  "base64 0.22.1",
@@ -5561,9 +5559,9 @@ dependencies = [
 
 [[package]]
 name = "tempfile"
-version = "3.19.0"
+version = "3.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "488960f40a3fd53d72c2a29a58722561dee8afdd175bd88e3db4677d7b2ba600"
+checksum = "7437ac7763b9b123ccf33c338a5cc1bac6f69b45a136c19bdd8a65e3916435bf"
 dependencies = [
  "fastrand 2.3.0",
  "getrandom 0.3.2",
@@ -6506,9 +6504,9 @@ dependencies = [
 
 [[package]]
 name = "windows"
-version = "0.61.0"
+version = "0.61.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b76779b1008b2bafb6cdf5e299dfe7f5780d604349fe68d9476c08feb448e98f"
+checksum = "c5ee8f3d025738cb02bad7868bbb5f8a6327501e870bf51f1b455b0a2454a419"
 dependencies = [
  "windows-collections",
  "windows-core 0.61.0",
@@ -6519,9 +6517,9 @@ dependencies = [
 
 [[package]]
 name = "windows-collections"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b095389c0f7a1e16ba4927c17478dca870938c7bbeb31e7f77eab4e86dc8fd1a"
+checksum = "3beeceb5e5cfd9eb1d76b381630e82c4241ccd0d27f1a39ed41b2760b255c5e8"
 dependencies = [
  "windows-core 0.61.0",
 ]
@@ -6572,9 +6570,9 @@ dependencies = [
 
 [[package]]
 name = "windows-future"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbb86813135724d122c524095d1e55a72f2844b0ce6b77ef05e782dff1e6abfc"
+checksum = "7a1d6bbefcb7b60acd19828e1bc965da6fcf18a7e39490c5f8be71e54a19ba32"
 dependencies = [
  "windows-core 0.61.0",
  "windows-link",
@@ -7260,9 +7258,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "2.4.1"
+version = "2.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "938cc23ac49778ac8340e366ddc422b2227ea176edb447e23fc0627608dddadd"
+checksum = "fabe6324e908f85a1c52063ce7aa26b68dcb7eb6dbc83a2d148403c9bc3eba50"
 dependencies = [
  "aes",
  "arbitrary",

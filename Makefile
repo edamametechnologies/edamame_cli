@@ -6,7 +6,13 @@
 -include ../secrets/sentry.env
 export
 
-macos: macos_release
+completions:
+	mkdir -p ./completions
+	./target/release/edamame_cli completion bash > ./completions/edamame_cli.bash
+	./target/release/edamame_cli completion fish > ./completions/edamame_cli.fish
+	./target/release/edamame_cli completion zsh > ./completions/_edamame_cli
+
+macos: macos_release completions
 
 macos_release:
 	cargo build --release
@@ -19,7 +25,7 @@ macos_publish: macos_release
 	# Sign + hardened runtime
 	./macos/sign.sh ./target/release/edamame_cli
 
-windows: windows_release
+windows: windows_release completions
 
 windows_debug:
 	cargo build
@@ -45,14 +51,10 @@ linux_debug:
 linux_release:
 	cargo build --release
 
-completions:
-	mkdir -p ./completions
-	./target/release/edamame_cli completion bash > ./completions/edamame_cli.bash
-	./target/release/edamame_cli completion fish > ./completions/edamame_cli.fish
-	./target/release/edamame_cli completion zsh > ./completions/_edamame_cli
-
-linux_publish: linux_release completions
+linux_publish: linux
 	cargo deb
+
+linux: linux_release completions
 
 linux_alpine: linux_alpine_release
 
