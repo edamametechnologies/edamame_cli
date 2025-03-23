@@ -77,6 +77,11 @@ pub fn build_cli() -> Command {
                     arg!([JSON_ARGS_ARRAY] "JSON arguments array")
                         .required(false)
                         .value_parser(clap::value_parser!(String)),
+                )
+                .arg(
+                    arg!(--pretty "Pretty print the JSON response")
+                        .required(false)
+                        .action(ArgAction::SetTrue),
                 ),
         )
 }
@@ -129,6 +134,7 @@ fn run() {
                 Some(json_args_array) => json_args_array.to_string(),
                 None => "[]".to_string(),
             },
+            args.get_flag("pretty"),
             verbose,
         ),
         Some(("interactive", _)) => {
@@ -182,7 +188,7 @@ fn initialize_core(console_logging: bool) {
     );
 }
 
-fn handle_rpc(method: String, json_args_array: String, verbose: bool) -> i32 {
+fn handle_rpc(method: String, json_args_array: String, pretty: bool, verbose: bool) -> i32 {
     initialize_core(verbose);
 
     // Convert the json_args_array to a Vec<String>
@@ -195,7 +201,20 @@ fn handle_rpc(method: String, json_args_array: String, verbose: bool) -> i32 {
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(result) => println!("Result: {:?}", result),
+        Ok(result) => {
+            if pretty {
+                // Try to parse the result as JSON
+                if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&result) {
+                    // Pretty print the JSON
+                    println!("{}", serde_json::to_string_pretty(&json_value).unwrap());
+                } else {
+                    // If it's not valid JSON, print as is
+                    println!("Result: {}", result);
+                }
+            } else {
+                println!("Result: {:?}", result);
+            }
+        }
         Err(e) => {
             eprintln!(">>>> Error calling RPC method: {:?}", e);
             return ERROR_CODE_SERVER_ERROR;

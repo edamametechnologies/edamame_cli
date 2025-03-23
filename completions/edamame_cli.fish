@@ -44,6 +44,7 @@ complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand list-method-info
 complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand list-method-infos" -s h -l help -d 'Print help'
 complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand interactive" -s v -l verbose -d 'Verbosity level (-v: info, -vv: debug, -vvv: trace)'
 complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand interactive" -s h -l help -d 'Print help'
+complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand rpc" -l pretty -d 'Pretty print the JSON response'
 complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand rpc" -s v -l verbose -d 'Verbosity level (-v: info, -vv: debug, -vvv: trace)'
 complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand rpc" -s h -l help -d 'Print help'
 complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand help; and not __fish_seen_subcommand_from completion list-methods get-method-info list-method-infos interactive rpc help" -f -a "completion" -d 'Generate shell completion scripts'
