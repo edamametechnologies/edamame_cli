@@ -155,7 +155,7 @@ fn run() {
 }
 
 fn initialize_core(console_logging: bool) {
-    let device = DeviceInfoAPI {
+    let device = SystemInfoAPI {
         device_id: "".to_string(),
         model: "".to_string(),
         brand: "".to_string(),
