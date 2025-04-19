@@ -1577,7 +1577,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.28"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#bc473d7b632d197171fd1f72aac8be12b71ca6c5"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#b49e34f116d4e42c55eca7412e7bc8809bc91bd8"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1649,7 +1649,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.28"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#0bfe7271ba52fb72432a87007094eb9c90732a42"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#9ae826b108769b179ef11799d6cdefee4ab171d8"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -4031,9 +4031,9 @@ dependencies = [
 
 [[package]]
 name = "objc2-core-foundation"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "daeaf60f25471d26948a1c2f840e3f7d86f4109e3af4e8e4b5cd70c39690d925"
+checksum = "1c10c2894a6fed806ade6027bcd50662746363a9589d3ec9d9bef30a4e4bc166"
 dependencies = [
  "bitflags 2.9.0",
 ]
