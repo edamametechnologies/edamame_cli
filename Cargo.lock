@@ -663,9 +663,9 @@ dependencies = [
 
 [[package]]
 name = "blake3"
-version = "1.8.1"
+version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "389a099b34312839e16420d499a9cad9650541715937ffbdd40d36f49e77eeb3"
+checksum = "3888aaa89e4b2a40fca9848e400f6a658a5a3978de7be858e209cafa8be9a4a0"
 dependencies = [
  "arrayref",
  "arrayvec",
@@ -1577,7 +1577,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.28"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#08c5f23c766b635bab3a8b7c9a328b930f14c6f6"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e00b8464fb4f576cf785049e7b2a928865a40ae7"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1649,7 +1649,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.28"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#0ba9c882f517d1f1cdd1ca36942601f72ad93061"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#fd5564badb8e104f4b625ac15921961815f5a2af"
 dependencies = [
  "anyhow",
  "arp-toolkit",
