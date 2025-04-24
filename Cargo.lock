@@ -1541,7 +1541,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_cli"
-version = "0.9.29"
+version = "0.9.30"
 dependencies = [
  "cargo-deb",
  "clap",
@@ -1556,8 +1556,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "0.9.29"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#d5d29671d0b982fe6f9cb2dedc820711a2ae08dc"
+version = "0.9.30"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#64397d592e0e5dab4f6e9d7f46732602d640fc4c"
 dependencies = [
  "anyhow",
  "arp-toolkit",
