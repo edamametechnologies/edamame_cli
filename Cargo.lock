@@ -276,9 +276,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.24"
+version = "0.4.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d615619615a650c571269c00dca41db04b9210037fa76ed8239f70404ab56985"
+checksum = "40f6024f3f856663b45fd0c9b6f2024034a702f453549449e0d84a305900dad4"
 dependencies = [
  "flate2",
  "futures-core",
@@ -495,9 +495,9 @@ dependencies = [
 
 [[package]]
 name = "autocfg"
-version = "1.4.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
+checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "axum"
@@ -1661,7 +1661,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.41"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#6433dbb46fd841c5c3ea9946cb19769c8ea45725"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#36cc9596713296ff585dc683ece19d57fffb7893"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1736,7 +1736,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.41"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#2f18b0c8f177e7d0be16e7e7fb7e3e061244085e"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#591533eba94d32abdef27f7a0695c53b51d5f0f7"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2084,7 +2084,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.41"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#756f945fa4ec1686a143d7906445247f512ce5f7"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0ae20aee49d87bc9360d8497486c4dae2c00d8cc"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -3228,9 +3228,9 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libc"
-version = "0.2.173"
+version = "0.2.174"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8cfeafaffdbc32176b64fb251369d52ea9f0a8fbc6f8759edffef7b525d64bb"
+checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
 
 [[package]]
 name = "libloading"
@@ -6320,9 +6320,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.29"
+version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b1ffbcf9c6f6b99d386e7444eb608ba646ae452a36b39737deb9663b610f662"
+checksum = "81383ab64e72a7a8b8e13130c49e3dab29def6d0c7d76a03087b3cf71c5c6903"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7551,18 +7551,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.25"
+version = "0.8.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1702d9583232ddb9174e01bb7c15a2ab8fb1bc6f227aa1233858c351a3ba0cb"
+checksum = "1039dd0d3c310cf05de012d8a39ff557cb0d23087fd44cad61df08fc31907a2f"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.25"
+version = "0.8.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28a6e20d751156648aa063f3800b706ee209a32c0b4d9f24be3d980b01be55ef"
+checksum = "9ecf5b4cc5364572d7f4c329661bcc82724222973f2cab6f050a4e5c22f75181"
 dependencies = [
  "proc-macro2",
  "quote",
