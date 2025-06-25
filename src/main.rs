@@ -185,6 +185,7 @@ fn initialize_core(console_logging: bool) {
         false,
         false,
         true,
+        false,
     );
 }
 
