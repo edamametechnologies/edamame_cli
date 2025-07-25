@@ -50,19 +50,25 @@ pub fn build_cli() -> Command {
             .action(ArgAction::Count)
             .global(true),
         )
-        .subcommand(Command::new("list-methods").about("List all available RPC methods"))
+        .subcommand(
+            Command::new("list-methods")
+                .about("List all available RPC methods")
+                .long_about("List all available RPC methods\n\nUse this command to discover what methods you can call with 'get-method-info' and 'rpc'")
+        )
         .subcommand(
             Command::new("get-method-info")
                 .about("Get information about a specific RPC method")
+                .long_about("Get information about a specific RPC method\n\nTo see available methods first:\n  edamame_cli list-methods\n\nThen get info for a specific method:\n  edamame_cli get-method-info <METHOD_NAME>")
                 .arg(
-                    arg!(<METHOD> "Method name")
+                    arg!(<METHOD> "Method name (use 'list-methods' to see available methods)")
                         .required(true)
                         .value_parser(clap::value_parser!(String)),
                 ),
         )
         .subcommand(
             Command::new("list-method-infos")
-                .about("List information about all available RPC methods"),
+                .about("List information about all available RPC methods")
+                .long_about("List information about all available RPC methods\n\nThis shows detailed info for every method, including required parameters")
         )
         .subcommand(Command::new("interactive").about("Enter interactive mode"))
         .subcommand(
@@ -194,7 +200,13 @@ fn handle_rpc(method: String, json_args_array: String, pretty: bool, verbose: bo
     initialize_core(verbose);
 
     // Convert the json_args_array to a Vec<String>
-    let args: Vec<String> = serde_json::from_str(&json_args_array).unwrap();
+    let args: Vec<String> = match serde_json::from_str(&json_args_array) {
+        Ok(args) => args,
+        Err(e) => {
+            eprintln!(">>>> Error parsing JSON arguments: {:?}", e);
+            return ERROR_CODE_PARAM;
+        }
+    };
     match rpc_call(
         method,
         args,
@@ -248,7 +260,7 @@ fn handle_get_method_info(method: String, verbose: bool) -> i32 {
     initialize_core(verbose);
 
     let info = match rpc_get_api_info(
-        method,
+        method.clone(),
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
@@ -260,7 +272,70 @@ fn handle_get_method_info(method: String, verbose: bool) -> i32 {
             return ERROR_CODE_SERVER_ERROR;
         }
     };
-    println!("API info: {:?}", info);
+
+    match &info {
+        Some(api_info) => {
+            println!("Method: {}", api_info.method);
+            println!("Return type: {}", api_info.return_type);
+            if !api_info.args.is_empty() {
+                println!("Arguments:");
+                for arg in &api_info.args {
+                    println!("  - {}: {}", arg.name, arg.arg_type);
+                }
+            } else {
+                println!("Arguments: None");
+            }
+
+            // Provide dynamic usage examples
+            println!("\nUsage examples:");
+            if !api_info.args.is_empty() {
+                // Create example values based on argument types (all as JSON strings since RPC expects Vec<String>)
+                let example_args: Vec<String> = api_info
+                    .args
+                    .iter()
+                    .map(|arg| {
+                        match arg.arg_type.as_str() {
+                            "String" => format!("\"example_{}\"", arg.name),
+                            "bool" => "\"true\"".to_string(),
+                            "i32" | "u32" | "i64" | "u64" | "usize" => "\"123\"".to_string(),
+                            "f32" | "f64" => "\"1.5\"".to_string(),
+                            _ => format!("\"example_{}\"", arg.name), // Default to string
+                        }
+                    })
+                    .collect();
+
+                println!(
+                    "  edamame_cli rpc {} '[{}]'",
+                    method,
+                    example_args.join(", ")
+                );
+                println!(
+                    "  edamame_cli rpc {} '[{}]' --pretty",
+                    method,
+                    example_args.join(", ")
+                );
+
+                // Show parameter mapping
+                println!("\nParameter mapping:");
+                for (i, arg) in api_info.args.iter().enumerate() {
+                    println!("  [{}] -> {} ({})", i, arg.name, arg.arg_type);
+                }
+
+                println!("\nNote: All arguments must be JSON strings, even for non-string types.");
+                println!("Examples of valid argument formats:");
+                println!("  - String: \"my_value\"");
+                println!("  - Boolean: \"true\" or \"false\"");
+                println!("  - Number: \"123\" or \"1.5\"");
+            } else {
+                println!("  edamame_cli rpc {}", method);
+                println!("  edamame_cli rpc {} --pretty", method);
+            }
+        }
+        None => {
+            println!("No information available for method: {}", method);
+        }
+    }
+
     0
 }
 
