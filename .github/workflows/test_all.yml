@@ -17,11 +17,13 @@ permissions: read-all
 
 jobs:
   test:
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, edamame-large-runner-windows]
-    runs-on: ${{ matrix.os }}
+        os: [ubuntu, macos, windows]
+        runs-on: [ubuntu-latest, macos-latest, vm-runner-windows]
+    runs-on: ${{ matrix.runs-on }}
 
     env:
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
@@ -39,6 +41,7 @@ jobs:
       MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
 
     steps:
+
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v0
         with:
@@ -59,7 +62,7 @@ jobs:
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Install additional packages w/ apt for linux
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu'
         run: |
           # Install build dependencies
           sudo apt-get update
@@ -68,23 +71,23 @@ jobs:
           sudo apt-get install -y libpcap-dev
 
       - name: Install additional packages w/ Homebrew for macOS
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos'
         run: |
           brew install protobuf
           brew install wget
 
       - name: Setup .NET 8.0 for Windows
-        if: matrix.os == 'edamame-large-runner-windows'
+        if: matrix.os == 'windows'
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: 8.0.x
 
       - name: Setup MS Store CLI for Windows
-        if: matrix.os == 'edamame-large-runner-windows'
+        if: matrix.os == 'windows'
         uses: microsoft/setup-msstore-cli@v1
 
       - name: Install additional packages w/ Chocolatey for Windows
-        if: matrix.os == 'edamame-large-runner-windows'
+        if: matrix.os == 'windows'
         run: |
           choco install protoc wget
           dotnet tool install --global AzureSignTool
@@ -101,7 +104,7 @@ jobs:
           cargo build --release
   
       - name: Signing for macOS
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos'
         shell: bash
         run: |
           # Create certificate files from secrets base64
@@ -134,7 +137,7 @@ jobs:
           ./macos/sign.sh $BINARY_PATH
 
       - name: Signing for Windows
-        if: matrix.os == 'edamame-large-runner-windows'
+        if: matrix.os == 'windows'
         # We can't use bash here, as the AzureSignTool is a .NET tool
         run: AzureSignTool sign -kvt ${{ secrets.AZURE_SIGN_TENANT_ID }} -kvu ${{ secrets.AZURE_SIGN_KEY_VAULT_URI }} -kvi ${{ secrets.AZURE_SIGN_CLIENT_ID }} -kvs ${{ secrets.AZURE_SIGN_CLIENT_SECRET }} -kvc ${{ secrets.AZURE_SIGN_CERT_NAME }} -tr http://timestamp.digicert.com -v ./target/release/edamame_cli.exe
 
