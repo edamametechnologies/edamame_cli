@@ -21,8 +21,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu, macos, windows]
-        runs-on: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu
+            runs-on: ubuntu-latest
+          - os: macos
+            runs-on: macos-latest
+          - os: windows
+            runs-on: windows-latest
     runs-on: ${{ matrix.runs-on }}
 
     env:
