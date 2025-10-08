@@ -49,6 +49,10 @@ assets = [
 
 [build-dependencies]
 
+# Local copy in order to allow rapid development/debug
+#flodbadd = { path = "../flodbadd", features = [ "packetcapture", "asyncpacketcapture" ] }
+flodbadd = { git = "https://github.com/edamametechnologies/flodbadd", branch = "main", features = [ "packetcapture", "asyncpacketcapture" ] }
+
 # Build metadata
 # Easier to generate completions with the cli once it's built
 # clap_complete = "4.5.1"
