@@ -1,3 +1,4 @@
+# Static linking for Windows
 [target.'cfg(target_os = "windows")']
 rustflags = ["-C", "target-feature=+crt-static"]
 
