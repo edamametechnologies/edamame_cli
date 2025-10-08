@@ -35,14 +35,6 @@ windows_release:
 
 windows_publish: windows_release
 
-windows_pcap:
-	choco install wget
-	choco install autohotkey.portable
-	wget https://nmap.org/npcap/dist/npcap-1.80.exe
-	autohotkey ./windows/npcap.ahk ../npcap-1.80.exe
-	sleep 20
-	ls -la /c/Windows/System32/Npcap
-
 linux: linux_release
 
 linux_debug:
@@ -86,12 +78,4 @@ clean:
 	rm -rf ./target/
 
 test:
-	# DLLs are required for tests to run on Windows
-	if [ "$(shell uname | cut -c1-10)" = "MINGW64_NT" ]; then \
-		mkdir -p ./target/debug; \
-		wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/Packet.dll -O ./target/debug/Packet.dll; \
-		chmod +x ./target/debug/Packet.dll; \
-		wget https://github.com/edamametechnologies/edamame_posture_cli/raw/refs/heads/main/windows/wpcap.dll -O ./target/debug/wpcap.dll; \
-		chmod +x ./target/debug/wpcap.dll; \
-	fi
 	cargo test -- --nocapture
