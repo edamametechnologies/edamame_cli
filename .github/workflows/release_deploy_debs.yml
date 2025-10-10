@@ -113,6 +113,7 @@ jobs:
         run: |
           cross build --release --target ${{ matrix.target }}
           # Copy the binary to the release folder which is expected by many tools
+          mkdir -p target/release
           cp target/${{ matrix.target }}/release/edamame_cli target/release/edamame_cli
 
       - name: Package Debian package with cargo deb
@@ -133,7 +134,7 @@ jobs:
           echo "Installing cargo-deb..."
           cargo install cargo-deb
           echo "Packaging .deb with cargo deb..."
-          cargo deb --no-build --target ${{ matrix.target }} --verbose
+          cargo deb --no-build --target ${{ matrix.target }}
 
       ############################################################################################
       # Release
