@@ -1,6 +1,6 @@
 [package]
 name = "edamame_cli"
-version = "0.9.71"
+version = "0.9.72"
 edition = "2021"
 
 [features]

@@ -3,7 +3,6 @@ use vergen_gitcl::*;
 #[cfg(target_os = "windows")]
 use flodbadd::windows_npcap;
 
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Windows-specific linking/runtime assistance
     #[cfg(target_os = "windows")]
