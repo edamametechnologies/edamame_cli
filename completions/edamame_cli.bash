@@ -247,7 +247,7 @@ _edamame_cli() {
             return 0
             ;;
         edamame_cli__list__methods)
-            opts="-v -h --verbose --help"
+            opts="-v -h --pretty --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

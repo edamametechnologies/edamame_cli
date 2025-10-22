@@ -41,6 +41,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (list-methods)
 _arguments "${_arguments_options[@]}" : \
+'--pretty[Pretty print the method list]' \
 '*-v[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '*--verbose[Verbosity level (-v\: info, -vv\: debug, -vvv\: trace)]' \
 '-h[Print help (see more with '\''--help'\'')]' \
