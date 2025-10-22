@@ -54,6 +54,11 @@ pub fn build_cli() -> Command {
             Command::new("list-methods")
                 .about("List all available RPC methods")
                 .long_about("List all available RPC methods\n\nUse this command to discover what methods you can call with 'get-method-info' and 'rpc'")
+                .arg(
+                    arg!(--pretty "Pretty print the method list")
+                        .required(false)
+                        .action(ArgAction::SetTrue),
+                )
         )
         .subcommand(
             Command::new("get-method-info")
@@ -128,7 +133,7 @@ fn run() {
     let verbose = verbose_level > 0;
 
     let exit_code = match matches.subcommand() {
-        Some(("list-methods", _)) => handle_list_methods(verbose),
+        Some(("list-methods", args)) => handle_list_methods(args.get_flag("pretty"), verbose),
         Some(("get-method-info", args)) => handle_get_method_info(
             args.get_one::<String>("METHOD").unwrap().to_string(),
             verbose,
@@ -196,17 +201,240 @@ fn initialize_core(console_logging: bool) {
     );
 }
 
+fn make_example_value(arg_type: &str, arg_name: &str) -> String {
+    match arg_type {
+        "String" => format!("\"example_{}\"", arg_name),
+        "bool" => "true".to_string(),
+        "i32" | "u32" | "i64" | "u64" | "usize" => "123".to_string(),
+        "f32" | "f64" => "1.5".to_string(),
+        t if t.starts_with("Vec<") => "[]".to_string(),
+        t if t.starts_with("Option<") => "null".to_string(),
+        _ => format!("\"example_{}\"", arg_name),
+    }
+}
+
+fn print_method_help_with_meta(method: &str, return_type: &str, args_meta: &[(String, String)]) {
+    println!("Method: {}", method);
+    println!("Return type: {}", return_type);
+    if !args_meta.is_empty() {
+        println!("Arguments:");
+        for (name, arg_type) in args_meta {
+            println!("  - {}: {}", name, arg_type);
+        }
+    } else {
+        println!("Arguments: None");
+    }
+
+    println!("\nUsage examples:");
+    if !args_meta.is_empty() {
+        // Array form (positional JSON values)
+        let example_values: Vec<String> = args_meta
+            .iter()
+            .map(|(name, ty)| make_example_value(ty, name))
+            .collect();
+        println!(
+            "  edamame_cli rpc {} '[{}]'",
+            method,
+            example_values.join(", ")
+        );
+        println!(
+            "  edamame_cli rpc {} '[{}]' --pretty",
+            method,
+            example_values.join(", ")
+        );
+
+        // Object form (named fields)
+        let example_object_fields: Vec<String> = args_meta
+            .iter()
+            .map(|(name, ty)| format!("\"{}\": {}", name, make_example_value(ty, name)))
+            .collect();
+        // escape braces in format string by doubling them ({{ -> {, }} -> })
+        println!(
+            "  edamame_cli rpc {} '{{{}}}'",
+            method,
+            example_object_fields.join(", ")
+        );
+        println!(
+            "  edamame_cli rpc {} '{{{}}}' --pretty",
+            method,
+            example_object_fields.join(", ")
+        );
+
+        // Parameter mapping for array form
+        println!("\nParameter mapping (array form):");
+        for (i, (name, arg_type)) in args_meta.iter().enumerate() {
+            println!("  [{}] -> {} ({})", i, name, arg_type);
+        }
+
+        println!("\nNotes:");
+        println!("  - You can pass arguments as a JSON array of values or a single JSON object.");
+        println!(
+            "  - In array form, each element must be a valid JSON literal of the expected type."
+        );
+        println!("  - In object form, use the exact argument names shown above as keys.");
+    } else {
+        println!("  edamame_cli rpc {}", method);
+        println!("  edamame_cli rpc {} --pretty", method);
+    }
+}
+
+fn fetch_method_meta(method: &str) -> Result<(String, Vec<(String, String)>), String> {
+    match rpc_get_api_info(
+        method.to_string(),
+        &EDAMAME_CA_PEM,
+        &EDAMAME_CLIENT_PEM,
+        &EDAMAME_CLIENT_KEY,
+        &EDAMAME_TARGET,
+    ) {
+        Ok(Some(api_info)) => Ok((
+            api_info.return_type,
+            api_info
+                .args
+                .into_iter()
+                .map(|a| (a.name, a.arg_type))
+                .collect(),
+        )),
+        Ok(None) => Err(format!("No information available for method: {}", method)),
+        Err(e) => Err(format!("Could not fetch method info: {:?}", e)),
+    }
+}
+
+fn print_method_help_from_core(method: &str) {
+    match fetch_method_meta(method) {
+        Ok((return_type, args_meta)) => {
+            print_method_help_with_meta(method, &return_type, &args_meta);
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+        }
+    }
+}
+
+fn levenshtein(a: &str, b: &str) -> usize {
+    let mut costs: Vec<usize> = (0..=b.len()).collect();
+    for (i, ca) in a.chars().enumerate() {
+        let mut last_cost = i;
+        let mut current_cost;
+        costs[0] = i + 1;
+        for (j, cb) in b.chars().enumerate() {
+            current_cost = costs[j + 1];
+            let mut new_cost = if ca == cb { last_cost } else { last_cost + 1 };
+            new_cost = new_cost.min(costs[j + 1] + 1);
+            new_cost = new_cost.min(costs[j] + 1);
+            last_cost = current_cost;
+            costs[j + 1] = new_cost;
+        }
+    }
+    costs[b.len()]
+}
+
+fn best_suggestion(input: &str, candidates: &[String]) -> Option<String> {
+    let mut best: Option<(usize, String)> = None;
+    for cand in candidates {
+        let d = levenshtein(input, cand);
+        match &mut best {
+            Some((bd, _)) => {
+                if d < *bd {
+                    *bd = d;
+                    best = Some((d, cand.clone()));
+                }
+            }
+            None => {
+                best = Some((d, cand.clone()));
+            }
+        }
+    }
+    if let Some((dist, name)) = best {
+        if dist <= 2 {
+            Some(name)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
 fn handle_rpc(method: String, json_args_array: String, pretty: bool, verbose: bool) -> i32 {
     initialize_core(verbose);
 
-    // Convert the json_args_array to a Vec<String>
-    let args: Vec<String> = match serde_json::from_str(&json_args_array) {
-        Ok(args) => args,
+    // Convert the provided JSON into Vec<String> arguments, supporting both array and object forms
+    let args: Vec<String> = match serde_json::from_str::<serde_json::Value>(&json_args_array) {
+        Ok(serde_json::Value::Array(values)) => values
+            .into_iter()
+            .map(|v| serde_json::to_string(&v).unwrap_or_else(|_| "null".to_string()))
+            .collect(),
+        Ok(serde_json::Value::Object(map)) => {
+            // Object form: order fields according to API metadata
+            match fetch_method_meta(&method) {
+                Ok((_ret, args_meta)) => {
+                    let expected_names: Vec<String> =
+                        args_meta.iter().map(|(n, _)| n.clone()).collect();
+                    let provided_names: Vec<String> = map.keys().cloned().collect();
+
+                    // Detect missing and unknown fields
+                    let missing: Vec<String> = expected_names
+                        .iter()
+                        .filter(|n| !map.contains_key(*n))
+                        .cloned()
+                        .collect();
+                    let unknown: Vec<String> = provided_names
+                        .iter()
+                        .filter(|n| !expected_names.contains(*n))
+                        .cloned()
+                        .collect();
+
+                    if !missing.is_empty() || !unknown.is_empty() {
+                        if !missing.is_empty() {
+                            for m in &missing {
+                                eprintln!(
+                                    ">>>> Missing field '{}' in provided JSON object for method {}",
+                                    m, method
+                                );
+                            }
+                        }
+                        if !unknown.is_empty() {
+                            eprintln!("Unknown fields present: {}", unknown.join(", "));
+                            for u in &unknown {
+                                if let Some(sugg) = best_suggestion(u, &expected_names) {
+                                    eprintln!(
+                                        "     '{}' is not expected. Did you mean '{}' ?",
+                                        u, sugg
+                                    );
+                                }
+                            }
+                        }
+                        print_method_help_from_core(&method);
+                        return ERROR_CODE_PARAM;
+                    }
+
+                    // Build ordered args
+                    let mut ordered: Vec<String> = Vec::with_capacity(args_meta.len());
+                    for (name, _ty) in args_meta {
+                        let v = map.get(&name).unwrap();
+                        ordered
+                            .push(serde_json::to_string(v).unwrap_or_else(|_| "null".to_string()));
+                    }
+                    ordered
+                }
+                Err(e) => {
+                    eprintln!("{}", e);
+                    return ERROR_CODE_PARAM;
+                }
+            }
+        }
+        Ok(_) => {
+            eprintln!(">>>> Error parsing JSON arguments: expected a JSON array or object");
+            print_method_help_from_core(&method);
+            return ERROR_CODE_PARAM;
+        }
         Err(e) => {
             eprintln!(">>>> Error parsing JSON arguments: {:?}", e);
+            print_method_help_from_core(&method);
             return ERROR_CODE_PARAM;
         }
     };
+    let method_name_for_help = method.clone();
     match rpc_call(
         method,
         args,
@@ -231,16 +459,17 @@ fn handle_rpc(method: String, json_args_array: String, pretty: bool, verbose: bo
         }
         Err(e) => {
             eprintln!(">>>> Error calling RPC method: {:?}", e);
+            print_method_help_from_core(&method_name_for_help);
             return ERROR_CODE_SERVER_ERROR;
         }
     }
     0
 }
 
-fn handle_list_methods(verbose: bool) -> i32 {
+fn handle_list_methods(pretty: bool, verbose: bool) -> i32 {
     initialize_core(verbose);
 
-    let methods = match rpc_get_api_methods(
+    let mut methods = match rpc_get_api_methods(
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
@@ -252,7 +481,18 @@ fn handle_list_methods(verbose: bool) -> i32 {
             return ERROR_CODE_SERVER_ERROR;
         }
     };
-    println!("Available RPC methods: {:?}", methods);
+
+    // Sort methods alphabetically
+    methods.sort();
+
+    if pretty {
+        println!("Available RPC methods:");
+        for method in methods {
+            println!("  {}", method);
+        }
+    } else {
+        println!("Available RPC methods: {:?}", methods);
+    }
     0
 }
 
@@ -275,61 +515,12 @@ fn handle_get_method_info(method: String, verbose: bool) -> i32 {
 
     match &info {
         Some(api_info) => {
-            println!("Method: {}", api_info.method);
-            println!("Return type: {}", api_info.return_type);
-            if !api_info.args.is_empty() {
-                println!("Arguments:");
-                for arg in &api_info.args {
-                    println!("  - {}: {}", arg.name, arg.arg_type);
-                }
-            } else {
-                println!("Arguments: None");
-            }
-
-            // Provide dynamic usage examples
-            println!("\nUsage examples:");
-            if !api_info.args.is_empty() {
-                // Create example values based on argument types (all as JSON strings since RPC expects Vec<String>)
-                let example_args: Vec<String> = api_info
-                    .args
-                    .iter()
-                    .map(|arg| {
-                        match arg.arg_type.as_str() {
-                            "String" => format!("\"example_{}\"", arg.name),
-                            "bool" => "\"true\"".to_string(),
-                            "i32" | "u32" | "i64" | "u64" | "usize" => "\"123\"".to_string(),
-                            "f32" | "f64" => "\"1.5\"".to_string(),
-                            _ => format!("\"example_{}\"", arg.name), // Default to string
-                        }
-                    })
-                    .collect();
-
-                println!(
-                    "  edamame_cli rpc {} '[{}]'",
-                    method,
-                    example_args.join(", ")
-                );
-                println!(
-                    "  edamame_cli rpc {} '[{}]' --pretty",
-                    method,
-                    example_args.join(", ")
-                );
-
-                // Show parameter mapping
-                println!("\nParameter mapping:");
-                for (i, arg) in api_info.args.iter().enumerate() {
-                    println!("  [{}] -> {} ({})", i, arg.name, arg.arg_type);
-                }
-
-                println!("\nNote: All arguments must be JSON strings, even for non-string types.");
-                println!("Examples of valid argument formats:");
-                println!("  - String: \"my_value\"");
-                println!("  - Boolean: \"true\" or \"false\"");
-                println!("  - Number: \"123\" or \"1.5\"");
-            } else {
-                println!("  edamame_cli rpc {}", method);
-                println!("  edamame_cli rpc {} --pretty", method);
-            }
+            let args_meta: Vec<(String, String)> = api_info
+                .args
+                .iter()
+                .map(|a| (a.name.clone(), a.arg_type.clone()))
+                .collect();
+            print_method_help_with_meta(&method, &api_info.return_type, &args_meta);
         }
         None => {
             println!("No information available for method: {}", method);

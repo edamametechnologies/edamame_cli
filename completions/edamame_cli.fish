@@ -36,6 +36,7 @@ complete -c edamame_cli -n "__fish_edamame_cli_needs_command" -f -a "rpc" -d 'Ca
 complete -c edamame_cli -n "__fish_edamame_cli_needs_command" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand completion" -s v -l verbose -d 'Verbosity level (-v: info, -vv: debug, -vvv: trace)'
 complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand completion" -s h -l help -d 'Print help'
+complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand list-methods" -l pretty -d 'Pretty print the method list'
 complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand list-methods" -s v -l verbose -d 'Verbosity level (-v: info, -vv: debug, -vvv: trace)'
 complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand list-methods" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c edamame_cli -n "__fish_edamame_cli_using_subcommand get-method-info" -s v -l verbose -d 'Verbosity level (-v: info, -vv: debug, -vvv: trace)'
