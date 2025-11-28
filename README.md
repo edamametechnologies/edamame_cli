@@ -2,6 +2,84 @@
 This is a complete interface to EDAMAME core services.
 It's usable with both the EDAMAME Security application and the EDAMAME Posture service.
 
+## Installation
+
+### Linux (Debian/Ubuntu)
+
+#### APT Repository Method (Recommended)
+```bash
+# Add the EDAMAME GPG Key
+wget -O - https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key | sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
+
+# Add the Repository
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" | sudo tee /etc/apt/sources.list.d/edamame.list
+
+# Install EDAMAME CLI
+sudo apt update
+sudo apt install edamame-cli
+```
+
+#### Alpine APK Repository Method
+```bash
+# Import the public key
+wget -O /tmp/edamame.rsa.pub https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/x86_64/edamame.rsa.pub
+sudo cp /tmp/edamame.rsa.pub /etc/apk/keys/
+
+# Add the repository
+echo "https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/main" | sudo tee -a /etc/apk/repositories
+
+# Install EDAMAME CLI
+sudo apk update
+sudo apk add edamame-cli
+```
+
+#### Manual Binary Installation
+Download the appropriate binary for your architecture from the [releases page](https://github.com/edamametechnologies/edamame_cli/releases):
+- **x86_64**: `edamame_cli-VERSION-x86_64-unknown-linux-gnu`
+- **i686**: `edamame_cli-VERSION-i686-unknown-linux-gnu`
+- **aarch64**: `edamame_cli-VERSION-aarch64-unknown-linux-gnu`
+- **armv7**: `edamame_cli-VERSION-armv7-unknown-linux-gnueabihf`
+- **x86_64 musl (Alpine)**: `edamame_cli-VERSION-x86_64-unknown-linux-musl`
+- **aarch64 musl (Alpine)**: `edamame_cli-VERSION-aarch64-unknown-linux-musl`
+
+```bash
+chmod +x edamame_cli-*
+sudo mv edamame_cli-* /usr/local/bin/edamame_cli
+```
+
+### macOS
+
+#### Homebrew Installation (Recommended)
+```bash
+# Add the EDAMAME tap
+brew tap edamametechnologies/tap
+
+# Install EDAMAME CLI
+brew install edamame-cli
+```
+
+#### Manual Binary Installation
+Download the universal macOS binary from the [releases page](https://github.com/edamametechnologies/edamame_cli/releases):
+- **Universal**: `edamame_cli-VERSION-universal-apple-darwin`
+
+```bash
+chmod +x edamame_cli-*
+sudo mv edamame_cli-* /usr/local/bin/edamame_cli
+```
+
+### Windows
+
+#### Chocolatey Installation (Recommended)
+```powershell
+choco install edamame-cli
+```
+
+#### Manual Binary Installation
+Download the Windows binary from the [releases page](https://github.com/edamametechnologies/edamame_cli/releases):
+- **x86_64**: `edamame_cli-VERSION-x86_64-pc-windows-msvc.exe`
+
+Rename to `edamame_cli.exe`, move to a permanent location, and add to your system PATH.
+
 ## Usage
 
 ```bash
