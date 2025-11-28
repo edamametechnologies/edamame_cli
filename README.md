@@ -4,9 +4,11 @@ It's usable with both the EDAMAME Security application and the EDAMAME Posture s
 
 ## Installation
 
-### Linux (Debian/Ubuntu)
+### Linux (Debian/Ubuntu/Raspbian)
 
 #### APT Repository Method (Recommended)
+
+> **Raspberry Pi Users**: EDAMAME CLI fully supports Raspberry Pi OS (formerly Raspbian) on all Raspberry Pi models.
 ```bash
 # Add the EDAMAME GPG Key
 wget -O - https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key | sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
