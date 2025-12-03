@@ -13,8 +13,8 @@ Get-ChocolateyWebFile -PackageName $packageName `
                       -ChecksumType64 'sha256'
 
 # Install-ChocolateyBinaryFile creates a shim so the executable is available in PATH
-Install-ChocolateyBinaryFile -PackageName $packageName `
-                             -FileFullPath $fileFullPath
+Install-BinFile -Name $packageName `
+                -Path $fileFullPath
 
 
 
