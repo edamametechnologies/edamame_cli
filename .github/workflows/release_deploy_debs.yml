@@ -29,12 +29,16 @@ jobs:
             target: armv7-unknown-linux-gnueabihf
             deb_arch: armhf
           - os: ubuntu
+            # We have a hard time finding an older version of Ubuntu to generate compatible binaries for older glibc
+            # So we use cross-compilation for this target
             runs-on: ubuntu-latest
             arch: amd64
             target: x86_64-unknown-linux-gnu
             deb_arch: amd64
+            # For performance reasons, we use native builds for this target
+            # We use an older version of Ubuntu to generate compatible binaries for older glibc
           - os: ubuntu
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-22.04-arm
             arch: aarch64
             target: aarch64-unknown-linux-gnu
             deb_arch: arm64
@@ -95,7 +99,7 @@ jobs:
 
       # Install protoc for native builds
       - name: Install protoc for native builds
-        if: (matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'aarch64-unknown-linux-gnu')
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: sudo apt-get install protobuf-compiler -y
 
       # Install Rust
@@ -115,7 +119,13 @@ jobs:
       # Build application for Linux using cross
       - name: Build application for Linux using cross
         run: |
-          cross build --release --target ${{ matrix.target }}
+          if [[ ${{ matrix.target }} == "aarch64-unknown-linux-gnu" ]]; then
+            echo "Native build on aarch64"
+            cargo build --release --target ${{ matrix.target }}
+          else
+            echo "Cross-compilation build"
+            cross build --release --target ${{ matrix.target }}
+          fi
           # Copy the binary to the release folder which is expected by many tools
           mkdir -p target/release
           cp target/${{ matrix.target }}/release/edamame_cli target/release/edamame_cli
