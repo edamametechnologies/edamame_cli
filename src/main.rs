@@ -172,6 +172,7 @@ fn initialize_core(console_logging: bool) {
         brand: "".to_string(),
         os_name: "".to_string(),
         os_version: "".to_string(),
+        ebpf_support: "".to_string(),
         ip4: "".to_string(),
         ip6: "".to_string(),
         mac: "".to_string(),

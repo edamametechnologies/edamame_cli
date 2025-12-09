@@ -1792,7 +1792,6 @@ dependencies = [
  "clap_complete",
  "edamame_core",
  "envcrypt",
- "flodbadd",
  "lazy_static",
  "paste",
  "serde_json",
@@ -1802,7 +1801,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#f1086ad45f9426182419b0795c26529566b9d825"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#fb79ac863cadc71cdecf31e6cd791223e2535269"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -2232,7 +2231,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.83"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0936fa3f9cdf839eeb8634b57068a7faae0a7ba3"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5ac4338b5c896107354bf98f28ab26e7f52c3460"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3342,7 +3341,7 @@ dependencies = [
 [[package]]
 name = "l7_ebpf_program"
 version = "0.1.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#0936fa3f9cdf839eeb8634b57068a7faae0a7ba3"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#5ac4338b5c896107354bf98f28ab26e7f52c3460"
 
 [[package]]
 name = "lazy_static"
