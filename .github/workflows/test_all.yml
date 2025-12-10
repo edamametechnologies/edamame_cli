@@ -69,11 +69,9 @@ jobs:
       - name: Install additional packages w/ apt for linux
         if: matrix.os == 'ubuntu'
         run: |
-          # Install build dependencies
+          # Install build dependencies (no libpcap needed - CLI is RPC client only)
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
-          # For packet capture
-          sudo apt-get install -y libpcap-dev
 
       - name: Install additional packages w/ Homebrew for macOS
         if: matrix.os == 'macos'
