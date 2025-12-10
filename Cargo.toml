@@ -3,15 +3,11 @@ name = "edamame_cli"
 version = "0.9.83"
 edition = "2021"
 
-[features]
-health = ["edamame_core/health"]
-
 [dependencies]
 
 # Local copy in order to allow rapid development/debug
-# Note: Using rpc_client instead of standalone to avoid packet capture dependency
-#edamame_core = { path = "../edamame_core", features = [ "rpc_client", "swiftrs" ] }
-edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "rpc_client", "swiftrs" ] }
+#edamame_core = { path = "../edamame_core", features = [ "swiftrs" ] }
+edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "swiftrs" ] }
 
 # Serde
 serde_json = "1.0"
