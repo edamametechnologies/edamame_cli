@@ -1,6 +1,3 @@
-# edamame_cli uses rpc_client feature - no packet capture needed
-# Only protobuf-compiler is required for building
-
 [target.x86_64-unknown-linux-gnu]
 pre-build = [
     "apt update -y && apt install -y protobuf-compiler"
