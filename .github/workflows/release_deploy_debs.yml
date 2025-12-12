@@ -100,6 +100,7 @@ jobs:
       # Install protoc for native builds
       - name: Install protoc for native builds
         if: matrix.target == 'aarch64-unknown-linux-gnu'
+        shell: bash
         run: |
           wait_for_apt_locks() {
             echo "Checking for apt/dpkg locks..."
