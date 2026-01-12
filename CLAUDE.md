@@ -8,6 +8,11 @@ EDAMAME CLI provides a complete command-line interface to EDAMAME Core services 
 
 Part of the EDAMAME ecosystem - see `../edamame_core/CLAUDE.md` for full ecosystem documentation.
 
+## Documentation Index
+
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Single-file architecture, command flow, RPC dispatch
+- **[README.md](README.md)** - Installation and usage guide
+
 ## Build Commands
 
 ```bash
