@@ -2,11 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Master Repository:** `edamame_app` - See `../edamame_app/CLAUDE.md` for workspace-wide rules and cross-repository guidance.
+
 ## Project Overview
 
 EDAMAME CLI provides a complete command-line interface to EDAMAME Core services via RPC. It supports interactive exploration, method discovery, and direct RPC calls.
-
-Part of the EDAMAME ecosystem - see `../edamame_core/CLAUDE.md` for full ecosystem documentation.
 
 ## Documentation Index
 
