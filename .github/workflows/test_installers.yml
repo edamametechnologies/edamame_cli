@@ -1,0 +1,384 @@
+name: Test CLI Installers
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+# Auto cancel previous runs if they were not completed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FALLBACK_VERSION: "0.9.75"
+  REPO_BASE: "https://github.com/edamametechnologies/edamame_posture_cli"
+
+jobs:
+  linux-apt:
+    name: Ubuntu (APT package)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Determine latest version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${FALLBACK_VERSION}"
+          LATEST_URL="${REPO_BASE}/releases/latest"
+          if REDIRECT=$(curl -s -I "$LATEST_URL" | grep -i "^location:" | sed 's/location: *//i' | tr -d '\r'); then
+            if TAG=$(echo "$REDIRECT" | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+"); then
+              VERSION="${TAG#v}"
+              echo "Found latest version: ${VERSION}"
+            else
+              echo "Could not parse latest tag, using fallback ${VERSION}"
+            fi
+          else
+            echo "Could not discover latest tag, using fallback ${VERSION}"
+          fi
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Install prerequisites
+        shell: bash
+        run: |
+          wait_for_apt_locks() {
+            echo "Checking for apt/dpkg locks..."
+            local TIMEOUT=300
+            local TIME_PASSED=0
+            local LOCK_FILES=(
+              "/var/lib/apt/lists/lock"
+              "/var/lib/dpkg/lock-frontend"
+              "/var/lib/dpkg/lock"
+              "/var/cache/apt/archives/lock"
+            )
+            while [ $TIME_PASSED -lt $TIMEOUT ]; do
+              local LOCKED=false
+              if command -v fuser >/dev/null 2>&1; then
+                for lock_file in "${LOCK_FILES[@]}"; do
+                  if [ -f "$lock_file" ] && sudo fuser "$lock_file" >/dev/null 2>&1; then
+                    LOCKED=true
+                    break
+                  fi
+                done
+              fi
+              if [ "$LOCKED" = "false" ]; then
+                if ! sudo dpkg --configure -a 2>/dev/null; then
+                  LOCKED=true
+                fi
+              fi
+              if [ "$LOCKED" = "false" ]; then
+                echo "No apt/dpkg locks held, proceeding..."
+                return 0
+              fi
+              echo "Waiting for apt/dpkg locks... ($TIME_PASSED/${TIMEOUT}s)"
+              sleep 5
+              TIME_PASSED=$((TIME_PASSED + 5))
+            done
+            return 1
+          }
+          
+          run_apt() {
+            local MAX_ATTEMPTS=10
+            local ATTEMPTS=0
+            while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
+              ATTEMPTS=$((ATTEMPTS + 1))
+              echo "apt-get $* (attempt $ATTEMPTS/$MAX_ATTEMPTS)"
+              if ! wait_for_apt_locks; then sleep 5; continue; fi
+              if sudo -E apt-get "$@"; then return 0; fi
+              sleep 5
+            done
+            return 1
+          }
+
+          # Make the helpers available to subsequent steps.
+          cat <<'EOF' >/tmp/apt_helpers.sh
+          wait_for_apt_locks() {
+            echo "Checking for apt/dpkg locks..."
+            local TIMEOUT=300
+            local TIME_PASSED=0
+            local LOCK_FILES=(
+              "/var/lib/apt/lists/lock"
+              "/var/lib/dpkg/lock-frontend"
+              "/var/lib/dpkg/lock"
+              "/var/cache/apt/archives/lock"
+            )
+            while [ $TIME_PASSED -lt $TIMEOUT ]; do
+              local LOCKED=false
+              if command -v fuser >/dev/null 2>&1; then
+                for lock_file in "${LOCK_FILES[@]}"; do
+                  if [ -f "$lock_file" ] && sudo fuser "$lock_file" >/dev/null 2>&1; then
+                    LOCKED=true
+                    break
+                  fi
+                done
+              fi
+              if [ "$LOCKED" = "false" ]; then
+                if ! sudo dpkg --configure -a 2>/dev/null; then
+                  LOCKED=true
+                fi
+              fi
+              if [ "$LOCKED" = "false" ]; then
+                echo "No apt/dpkg locks held, proceeding..."
+                return 0
+              fi
+              echo "Waiting for apt/dpkg locks... ($TIME_PASSED/${TIMEOUT}s)"
+              sleep 5
+              TIME_PASSED=$((TIME_PASSED + 5))
+            done
+            return 1
+          }
+
+          run_apt() {
+            local MAX_ATTEMPTS=10
+            local ATTEMPTS=0
+            while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
+              ATTEMPTS=$((ATTEMPTS + 1))
+              echo "apt-get $* (attempt $ATTEMPTS/$MAX_ATTEMPTS)"
+              if ! wait_for_apt_locks; then sleep 5; continue; fi
+              if sudo -E apt-get "$@"; then return 0; fi
+              sleep 5
+            done
+            return 1
+          }
+          EOF
+          source /tmp/apt_helpers.sh
+          
+          export DEBIAN_FRONTEND=noninteractive
+          wait_for_apt_locks
+          run_apt update -qq
+          run_apt install -y curl gnupg ca-certificates
+
+      - name: Install edamame-cli via APT
+        id: install
+        run: |
+          set -euo pipefail
+          source /tmp/apt_helpers.sh
+          curl -sL https://edamame.s3.eu-west-1.amazonaws.com/repo/public.key | \
+            sudo gpg --dearmor -o /usr/share/keyrings/edamame.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/edamame.gpg] https://edamame.s3.eu-west-1.amazonaws.com/repo stable main" | \
+            sudo tee /etc/apt/sources.list.d/edamame.list >/dev/null
+          wait_for_apt_locks
+          run_apt update -qq
+          run_apt install -y edamame-cli
+
+      - name: Verify binary is available
+        id: verify
+        run: |
+          set -euo pipefail
+          command -v edamame_cli
+          edamame_cli --version || true
+          edamame_cli --help | head -n 20
+
+      - name: Slack alerts
+        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *CLI Installer Test (Ubuntu APT)*:
+            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
+
+      - name: Fail job if tests failed
+        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
+        run: |
+          echo "❌ Tests for Ubuntu (APT) did not succeed"
+          exit 1
+
+  linux-apk:
+    name: Alpine (APK package)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container: alpine:3.19
+    steps:
+      - name: Prepare Alpine
+        run: |
+          set -euo pipefail
+          apk add --no-cache curl ca-certificates bash
+          update-ca-certificates
+
+      - name: Add repository and install edamame-cli
+        id: install
+        run: |
+          set -euo pipefail
+          ARCH="$(uname -m)"
+          REPO_URL="https://edamame.s3.eu-west-1.amazonaws.com/repo/alpine/v3.15/main"
+          wget -q -O /etc/apk/keys/edamame.rsa.pub "${REPO_URL}/${ARCH}/edamame.rsa.pub" || true
+          echo "${REPO_URL}" >> /etc/apk/repositories
+          apk update
+          apk add --no-cache edamame-cli || { echo "apk install failed"; exit 1; }
+
+      - name: Verify binary is available
+        id: verify
+        run: |
+          set -euo pipefail
+          command -v edamame_cli
+          edamame_cli --version || true
+          edamame_cli --help | head -n 20
+
+      - name: Slack alerts
+        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *CLI Installer Test (Alpine APK)*:
+            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
+
+      - name: Fail job if tests failed
+        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
+        run: |
+          echo "❌ Tests for Alpine (APK) did not succeed"
+          exit 1
+
+  linux-binary:
+    name: Linux (direct binary)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Determine latest version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${FALLBACK_VERSION}"
+          LATEST_URL="${REPO_BASE}/releases/latest"
+          if REDIRECT=$(curl -s -I "$LATEST_URL" | grep -i "^location:" | sed 's/location: *//i' | tr -d '\r'); then
+            if TAG=$(echo "$REDIRECT" | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+"); then
+              VERSION="${TAG#v}"
+            fi
+          fi
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Download binary artifact
+        id: download
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          ASSET="edamame_cli-${VERSION}-x86_64-unknown-linux-gnu"
+          URL="${REPO_BASE}/releases/download/v${VERSION}/${ASSET}"
+          echo "Downloading ${URL}"
+          curl -fsSL "${URL}" -o edamame_cli
+          chmod +x edamame_cli
+          ls -la edamame_cli
+
+      - name: Verify binary runs
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./edamame_cli --version || true
+          ./edamame_cli --help | head -n 20
+
+      - name: Slack alerts
+        if: ${{ always() && (steps.download.outcome != 'success' || steps.verify.outcome != 'success') }}
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *CLI Installer Test (Linux Binary)*:
+            - Download: ${{ steps.download.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
+
+      - name: Fail job if tests failed
+        if: ${{ always() && (steps.download.outcome != 'success' || steps.verify.outcome != 'success') }}
+        run: |
+          echo "❌ Tests for Linux (binary) did not succeed"
+          exit 1
+
+  macos-brew:
+    name: macOS (Homebrew)
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - name: Install via Homebrew
+        id: install
+        run: |
+          set -euo pipefail
+          brew update
+          brew tap edamametechnologies/tap
+          brew install edamame-cli
+
+      - name: Verify binary is available
+        id: verify
+        run: |
+          set -euo pipefail
+          command -v edamame_cli
+          edamame_cli --version || true
+          edamame_cli --help | head -n 20
+
+      - name: Slack alerts
+        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *CLI Installer Test (macOS Homebrew)*:
+            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
+
+      - name: Fail job if tests failed
+        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
+        run: |
+          echo "❌ Tests for macOS (Homebrew) did not succeed"
+          exit 1
+
+  windows-choco:
+    name: Windows (Chocolatey)
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Install via Chocolatey
+        id: install
+        shell: pwsh
+        run: |
+          choco install edamame-cli -y
+
+      - name: Verify binary is available
+        id: verify
+        shell: pwsh
+        run: |
+          $exe = Get-Command edamame_cli.exe -ErrorAction Stop
+          Write-Host "Binary path: $($exe.Source)"
+          & $exe.Source --version
+          & $exe.Source --help | Select-Object -First 20
+
+      - name: Slack alerts
+        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: |
+            *CLI Installer Test (Windows Chocolatey)*:
+            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        continue-on-error: true
+
+      - name: Fail job if tests failed
+        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
+        run: |
+          echo "❌ Tests for Windows (Chocolatey) did not succeed"
+          exit 1
