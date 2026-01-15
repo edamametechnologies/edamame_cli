@@ -8,7 +8,6 @@ alwaysApply: true
 > **Master Repository:** `edamame_app` - See `../edamame_app/.cursor/rules/workspace.mdc` for workspace-wide rules.
 
 ## Documentation (Read First)
-- **CLAUDE.md** - Build commands, CLI commands
 - **ARCHITECTURE.md** - Single-file architecture, RPC dispatch
 - **README.md** - Installation and usage guide
 
@@ -29,15 +28,37 @@ EDAMAME CLI provides direct RPC access to edamame_core:
 ```bash
 cargo build --release
 make test
+
+# Platform-specific
+make macos
+make linux
+make linux_alpine    # MUSL target
+make windows
 ```
 
-## Usage Examples
+## CLI Commands
+
 ```bash
-edamame-cli list-methods
-edamame-cli rpc get_score --pretty
-edamame-cli rpc method_name '["arg1", 42]'
-edamame-cli interactive
+# Method discovery
+edamame-cli list-methods              # List all available RPC methods
+edamame-cli list-method-infos         # List all methods with details
+edamame-cli get-method-info <METHOD>  # Get info about specific method
+
+# RPC calls
+edamame-cli rpc <METHOD> [JSON_ARGS]  # Call RPC method with JSON arguments
+edamame-cli rpc get_score --pretty    # With pretty output
+
+# Interactive mode
+edamame-cli interactive               # REPL for RPC exploration
+
+# Shell completions
+edamame-cli completion <SHELL>        # Generate completions (bash/fish/zsh)
 ```
+
+## Verbosity Levels
+- `-v` - Info logging
+- `-vv` - Debug logging
+- `-vvv` - Trace logging
 
 ## Local Development
 Toggle local/git dependencies (run from edamame_app):
