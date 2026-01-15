@@ -1703,7 +1703,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_cli"
-version = "0.9.83"
+version = "0.9.84"
 dependencies = [
  "cargo-deb",
  "clap",

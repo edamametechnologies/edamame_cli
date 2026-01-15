@@ -1,3 +1,8 @@
+---
+description: "EDAMAME CLI - RPC interface for direct access to edamame_core"
+alwaysApply: true
+---
+
 # EDAMAME CLI - RPC Interface
 
 ## Documentation (Read First)
