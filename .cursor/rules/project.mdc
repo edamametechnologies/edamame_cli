@@ -5,8 +5,9 @@ alwaysApply: true
 
 # EDAMAME CLI - RPC Interface
 
+> **Master Repository:** `edamame_app` - See `../edamame_app/.cursor/rules/workspace.mdc` for workspace-wide rules.
+
 ## Documentation (Read First)
-Before making changes, consult these files:
 - **CLAUDE.md** - Build commands, CLI commands
 - **ARCHITECTURE.md** - Single-file architecture, RPC dispatch
 - **README.md** - Installation and usage guide
@@ -38,5 +39,9 @@ edamame-cli rpc method_name '["arg1", 42]'
 edamame-cli interactive
 ```
 
-## Part of EDAMAME Ecosystem
-Uses `edamame_core` with `swiftrs` feature. See `../edamame_core/CLAUDE.md` for the full ecosystem.
+## Local Development
+Toggle local/git dependencies (run from edamame_app):
+```bash
+cd ../edamame_app && ./flip.sh local
+cd ../edamame_app && ./flip.sh git
+```
