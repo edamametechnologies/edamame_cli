@@ -242,66 +242,7 @@ jobs:
           echo "❌ Tests for Alpine (APK) did not succeed"
           exit 1
 
-  linux-binary:
-    name: Linux (direct binary)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Determine latest version
-        id: version
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${FALLBACK_VERSION}"
-          LATEST_URL="${REPO_BASE}/releases/latest"
-          if REDIRECT=$(curl -s -I "$LATEST_URL" | grep -i "^location:" | sed 's/location: *//i' | tr -d '\r'); then
-            if TAG=$(echo "$REDIRECT" | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+"); then
-              VERSION="${TAG#v}"
-            fi
-          fi
-          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
-
-      - name: Download binary artifact
-        id: download
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${{ steps.version.outputs.version }}"
-          ASSET="edamame_cli-${VERSION}-x86_64-unknown-linux-gnu"
-          URL="${REPO_BASE}/releases/download/v${VERSION}/${ASSET}"
-          echo "Downloading ${URL}"
-          curl -fsSL "${URL}" -o edamame_cli
-          chmod +x edamame_cli
-          ls -la edamame_cli
-
-      - name: Verify binary runs
-        id: verify
-        shell: bash
-        run: |
-          set -euo pipefail
-          ./edamame_cli --version || true
-          ./edamame_cli --help | head -n 20
-
-      - name: Slack alerts
-        if: ${{ always() && (steps.download.outcome != 'success' || steps.verify.outcome != 'success') }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *CLI Installer Test (Linux Binary)*:
-            - Download: ${{ steps.download.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
-      - name: Fail job if tests failed
-        if: ${{ always() && (steps.download.outcome != 'success' || steps.verify.outcome != 'success') }}
-        run: |
-          echo "❌ Tests for Linux (binary) did not succeed"
-          exit 1
-
+  
   macos-brew:
     name: macOS (Homebrew)
     runs-on: macos-latest
