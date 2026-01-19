@@ -49,4 +49,4 @@ assets = [
 # Build metadata
 # Easier to generate completions with the cli once it's built
 # clap_complete = "4.5.1"
-vergen-gitcl = { version = "1.0.5", features = [ "build", "cargo", "rustc", "si" ] }
+vergen-gitcl = { version = "10.0.1", features = [ "build", "cargo", "rustc", "si" ] }
