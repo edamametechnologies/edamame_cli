@@ -6,8 +6,8 @@ edition = "2021"
 [dependencies]
 
 # Local copy in order to allow rapid development/debug
-edamame_core = { path = "../edamame_core", features = [ "swiftrs" ] }
-#edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "swiftrs" ] }
+#edamame_core = { path = "../edamame_core", features = [ "swiftrs" ] }
+edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", branch = "main", features = [ "swiftrs" ] }
 
 # Serde
 serde_json = "1.0"
