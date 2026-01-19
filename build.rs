@@ -1,4 +1,6 @@
-use vergen_gitcl::{BuildBuilder, CargoBuilder, Emitter, GitclBuilder, RustcBuilder, SysinfoBuilder};
+use vergen_gitcl::{
+    BuildBuilder, CargoBuilder, Emitter, GitclBuilder, RustcBuilder, SysinfoBuilder,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Emit the instructions with idempotent() for cross-compilation support
