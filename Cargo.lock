@@ -1659,6 +1659,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#fe18388e34a9ad2a36465c4e7da5a6b6d98b5205"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1687,6 +1688,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "0.9.88"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#06f182b820ff4ae0d473c9564dff800b7b76dfed"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1771,6 +1773,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "0.9.88"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#08e2e7a664bdef3ac82f22ff150442af21645188"
 dependencies = [
  "anyhow",
  "arp-toolkit",
@@ -1812,7 +1815,7 @@ dependencies = [
  "serde_with",
  "serial_test",
  "sha2",
- "socket2 0.6.1",
+ "socket2 0.6.2",
  "sorted-vec",
  "strum",
  "strum_macros",
@@ -1836,6 +1839,7 @@ dependencies = [
 [[package]]
 name = "edamame_models"
 version = "0.1.1"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#58b0f0ade2d9f6d0d35806c84fc4e7cd4a8950a8"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2051,6 +2055,7 @@ dependencies = [
 [[package]]
 name = "extended-isolation-forest"
 version = "0.2.3"
+source = "git+https://github.com/edamametechnologies/extended-isolation-forest?branch=main#b373e9dd5681447d5fff50c106a73ec2ee0f4377"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
@@ -2147,6 +2152,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "0.9.88"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#486a29f553a74e87836a7b357a9d0b9e325a79bf"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2184,7 +2190,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "sha2",
- "socket2 0.6.1",
+ "socket2 0.6.2",
  "sorted-vec",
  "strum_macros",
  "sysinfo",
@@ -2916,7 +2922,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.6.1",
+ "socket2 0.6.2",
  "tokio",
  "tower-service",
  "tracing",
@@ -3629,7 +3635,7 @@ dependencies = [
  "if-watch",
  "libc",
  "libp2p-core",
- "socket2 0.6.1",
+ "socket2 0.6.2",
  "tokio",
  "tracing",
 ]
@@ -5109,7 +5115,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
- "socket2 0.6.1",
+ "socket2 0.6.2",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -5146,7 +5152,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.6.1",
+ "socket2 0.6.2",
  "tracing",
  "windows-sys 0.60.2",
 ]
@@ -6086,9 +6092,9 @@ dependencies = [
 
 [[package]]
 name = "socket2"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17129e116933cf371d018bb80ae557e889637989d8638274fb25622827b03881"
+checksum = "86f4aa3ad99f2088c990dfa82d367e19cb29268ed67c574d10d0a4bfe71f07e0"
 dependencies = [
  "libc",
  "windows-sys 0.60.2",
@@ -6196,7 +6202,7 @@ dependencies = [
  "parking_lot",
  "pnet_packet 0.34.0",
  "rand 0.9.2",
- "socket2 0.6.1",
+ "socket2 0.6.2",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
@@ -6459,7 +6465,7 @@ dependencies = [
  "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2 0.6.1",
+ "socket2 0.6.2",
  "tokio-macros",
  "tracing",
  "windows-sys 0.61.2",
@@ -6568,7 +6574,7 @@ dependencies = [
  "hyper-util",
  "percent-encoding",
  "pin-project",
- "socket2 0.6.1",
+ "socket2 0.6.2",
  "sync_wrapper",
  "tokio",
  "tokio-rustls",
@@ -6835,6 +6841,7 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "undeadlock"
 version = "0.9.88"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#7814cf3220de3a95807ac705848caa039ff48728"
 dependencies = [
  "dashmap 6.1.0",
  "futures",
