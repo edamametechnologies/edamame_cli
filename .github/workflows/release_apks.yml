@@ -333,6 +333,11 @@ jobs:
           echo "=== APK Repository Update Complete ==="
         shell: alpine.sh --root {0}
 
+      - name: Check job status before posture dump
+        id: job_status_check
+        if: always()
+        run: echo "job_was_failing=${{ failure() }}" >> $GITHUB_OUTPUT
+
       - name: Dump EDAMAME Posture sessions
         id: dump_sessions
         if: always()
@@ -345,6 +350,6 @@ jobs:
         uses: slackapi/slack-github-action@v1.26.0
         with:
           channel-id: 'C072J0U9TH7'
-          slack-message: "[JOB FAILURE]${{ steps.dump_sessions.outcome == 'failure' && ' [POSTURE POST JOB FAILURE]' || '' }} Release workflow ${{ github.workflow }} for ${{ github.repository }} on ${{ runner.os }} (${{ matrix.arch }}) failed: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          slack-message: "${{ steps.job_status_check.outputs.job_was_failing == 'true' && '[JOB FAILURE]' || '' }}${{ steps.dump_sessions.outcome == 'failure' && '[POSTURE POST JOB FAILURE]' || '' }} Release workflow ${{ github.workflow }} for ${{ github.repository }} on ${{ runner.os }} (${{ matrix.arch }}) failed: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
