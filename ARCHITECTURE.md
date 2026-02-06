@@ -133,7 +133,7 @@ Did you mean: get_score?
 
 ## Dependencies
 
-- `edamame_core` (with `swiftrs` feature) - Core functionality
+- `edamame_core` (with `swiftrs` feature) - Core functionality. See **[EDAMAME Core API](https://github.com/edamametechnologies/edamame_core_api)** for public API documentation
 - `clap` + `clap_complete` - CLI framework
 - `serde_json` - JSON parsing
 
