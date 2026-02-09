@@ -124,7 +124,7 @@ jobs:
           wait_for_apt_locks
           # Install build dependencies (no libpcap needed - CLI is RPC client only)
           run_apt update -y
-          run_apt install -y protobuf-compiler pkg-config libglib2.0-dev
+          run_apt install -y protobuf-compiler pkg-config libgtk-3-dev
 
       - name: Install additional packages w/ Homebrew for macOS
         if: matrix.os == 'macos'

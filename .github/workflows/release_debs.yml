@@ -184,7 +184,7 @@ jobs:
           wait_for_apt_locks
           
           run_apt update -y
-          run_apt install -y protobuf-compiler pkg-config libglib2.0-dev
+          run_apt install -y protobuf-compiler pkg-config libgtk-3-dev
 
       # Install Rust
       - name: Install Rust
