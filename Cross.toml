@@ -1,6 +1,7 @@
 [target.x86_64-unknown-linux-gnu]
 pre-build = [
-    "apt update -y && apt install -y protobuf-compiler"
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt update -y && apt install -y protobuf-compiler pkg-config libgtk-3-dev:$CROSS_DEB_ARCH"
 ]
 
 [target.x86_64-unknown-linux-musl]
@@ -10,7 +11,8 @@ pre-build = [
 
 [target.i686-unknown-linux-gnu]
 pre-build = [
-    "apt update -y && apt install -y protobuf-compiler"
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt update -y && apt install -y protobuf-compiler pkg-config libgtk-3-dev:$CROSS_DEB_ARCH"
 ]
 
 [target.i686-unknown-linux-gnu.env]
@@ -21,7 +23,8 @@ PKG_CONFIG_PATH = "/usr/lib/i386-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/sha
 
 [target.aarch64-unknown-linux-gnu]
 pre-build = [
-    "apt update -y && apt install -y protobuf-compiler"
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt update -y && apt install -y protobuf-compiler pkg-config libgtk-3-dev:$CROSS_DEB_ARCH"
 ]
 
 [target.aarch64-unknown-linux-musl]
@@ -31,7 +34,8 @@ pre-build = [
 
 [target.armv7-unknown-linux-gnueabihf]
 pre-build = [
-    "apt update -y && apt install -y protobuf-compiler"
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt update -y && apt install -y protobuf-compiler pkg-config libgtk-3-dev:$CROSS_DEB_ARCH"
 ]
 
 [build.env]
