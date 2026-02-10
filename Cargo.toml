@@ -36,6 +36,7 @@ maintainer = "EDAMAME Technologies"
 copyright = "EDAMAME Technologies"
 license-file = ["LICENSE", "0"]
 maintainer-scripts = "debian/"
+depends = "$auto, libgtk-3-0"
 assets = [
     { source = "target/release/edamame_cli", dest = "usr/bin/edamame_cli", mode = "0755" },
     # Add completion files for different shells
