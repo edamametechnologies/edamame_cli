@@ -82,7 +82,8 @@ jobs:
             protobuf-dev \
             git \
             curl \
-            pkgconf
+            pkgconf \
+            gtk+3.0-dev
         shell: alpine.sh --root {0}
 
       # Install Rust
@@ -112,6 +113,8 @@ jobs:
         shell: alpine.sh {0}
         env:
           VERGEN_GIT_BRANCH: ${{ github.ref_name }}
+          # GTK3 only provides shared libraries - disable static CRT linking for musl
+          RUSTFLAGS: "-C target-feature=-crt-static"
 
       - name: Build application in debug mode for Linux musl
         run: |
@@ -119,6 +122,8 @@ jobs:
         shell: alpine.sh {0}
         env:
           VERGEN_GIT_BRANCH: ${{ github.ref_name }}
+          # GTK3 only provides shared libraries - disable static CRT linking for musl
+          RUSTFLAGS: "-C target-feature=-crt-static"
 
       # Package Alpine APK
       - name: Package Alpine APK
