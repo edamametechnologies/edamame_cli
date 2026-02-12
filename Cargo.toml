@@ -1,6 +1,6 @@
 [package]
 name = "edamame_cli"
-version = "1.0.3"
+version = "1.0.4"
 edition = "2021"
 
 [dependencies]
@@ -36,7 +36,7 @@ maintainer = "EDAMAME Technologies"
 copyright = "EDAMAME Technologies"
 license-file = ["LICENSE", "0"]
 maintainer-scripts = "debian/"
-depends = "$auto, libgtk-3-0"
+depends = "$auto, libglib2.0-0 | libglib2.0-0t64, libgtk-3-0 | libgtk-3-0t64"
 assets = [
     { source = "target/release/edamame_cli", dest = "usr/bin/edamame_cli", mode = "0755" },
     # Add completion files for different shells
