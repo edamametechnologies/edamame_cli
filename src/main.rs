@@ -177,6 +177,7 @@ fn initialize_core(console_logging: bool) {
         ip6: "".to_string(),
         mac: "".to_string(),
         peer_ids: vec![],
+        is_online: false,
     };
 
     // By changing the executable type, we can have different logging behavior
