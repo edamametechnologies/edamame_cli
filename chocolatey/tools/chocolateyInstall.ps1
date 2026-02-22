@@ -1,8 +1,8 @@
 $packageName = 'edamame-cli'
-$packageVersion = '1.0.9'
+$packageVersion = '1.0.8'
 $toolsDir = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
 $url64 = "https://github.com/edamametechnologies/edamame_cli/releases/download/v$packageVersion/edamame_cli-$packageVersion-x86_64-pc-windows-msvc.exe"
-$checksum64 = 'PLACEHOLDER_WILL_BE_SET_BY_CI'
+$checksum64 = '969ca28f90a53ddb909d6a4b1b527afa797c6bb3ea782ad745d55bf0324f3e97'
 
 # Download the standalone executable
 $fileFullPath = Join-Path $toolsDir "edamame_cli.exe"
