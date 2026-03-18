@@ -241,18 +241,56 @@ jobs:
           draft: false
           prerelease: false
 
-      # Main only - skip Windows upload if Chocolatey version already exists to prevent checksum desync
-      - name: Upload asset to release
-        if: github.ref == 'refs/heads/main' && !(matrix.os == 'windows' && steps.check_choco.outputs.exists == 'true')
+      # Main only - macOS upload (action works on hosted runners)
+      - name: Upload asset to release (macOS)
+        if: github.ref == 'refs/heads/main' && matrix.os == 'macos'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
-          asset_path: target/${{ matrix.target }}/release/edamame_cli${{ matrix.os == 'windows' && '.exe' || '' }}
-          asset_name: edamame_cli-${{ steps.get_release.outputs.version }}-${{ matrix.target }}${{ matrix.os == 'windows' && '.exe' || '' }}
+          asset_path: target/${{ matrix.target }}/release/edamame_cli
+          asset_name: edamame_cli-${{ steps.get_release.outputs.version }}-${{ matrix.target }}
           asset_content_type: application/octet-stream
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Main only - Windows upload uses explicit gh release upload (action silently fails on self-hosted runner)
+      - name: Upload asset to release (Windows)
+        if: github.ref == 'refs/heads/main' && matrix.os == 'windows' && steps.check_choco.outputs.exists != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.get_release.outputs.version }}"
+          TAG="${{ steps.get_release.outputs.tag }}"
+          ASSET_PATH="${GITHUB_WORKSPACE}/target/${{ matrix.target }}/release/edamame_cli.exe"
+          ASSET_NAME="edamame_cli-${VERSION}-${{ matrix.target }}.exe"
+
+          if [[ ! -f "$ASSET_PATH" ]]; then
+            echo "ERROR: expected Windows binary missing: $ASSET_PATH"
+            exit 1
+          fi
+
+          gh release upload "$TAG" "${ASSET_PATH}#${ASSET_NAME}" \
+            --repo "${{ github.repository }}" \
+            --clobber
+
+          ASSET_NAMES="$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[].name')"
+          echo "$ASSET_NAMES"
+
+          FOUND=false
+          while IFS= read -r name; do
+            if [[ "$name" == "$ASSET_NAME" ]]; then
+              FOUND=true
+              break
+            fi
+          done <<< "$ASSET_NAMES"
+
+          if [[ "$FOUND" != true ]]; then
+            echo "ERROR: release asset verification failed: $ASSET_NAME"
+            exit 1
+          fi
 
 
       ############################################################################################
