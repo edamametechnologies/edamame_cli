@@ -264,15 +264,17 @@ jobs:
           set -euo pipefail
           VERSION="${{ steps.get_release.outputs.version }}"
           TAG="${{ steps.get_release.outputs.tag }}"
-          ASSET_PATH="${GITHUB_WORKSPACE}/target/${{ matrix.target }}/release/edamame_cli.exe"
+          ASSET_SRC="${GITHUB_WORKSPACE}/target/${{ matrix.target }}/release/edamame_cli.exe"
           ASSET_NAME="edamame_cli-${VERSION}-${{ matrix.target }}.exe"
 
-          if [[ ! -f "$ASSET_PATH" ]]; then
-            echo "ERROR: expected Windows binary missing: $ASSET_PATH"
+          if [[ ! -f "$ASSET_SRC" ]]; then
+            echo "ERROR: expected Windows binary missing: $ASSET_SRC"
             exit 1
           fi
 
-          gh release upload "$TAG" "${ASSET_PATH}#${ASSET_NAME}" \
+          cp "$ASSET_SRC" "$ASSET_NAME"
+
+          gh release upload "$TAG" "$ASSET_NAME" \
             --repo "${{ github.repository }}" \
             --clobber
 
