@@ -456,7 +456,7 @@ fn handle_rpc(method: String, json_args_array: String, pretty: bool, verbose: bo
                     println!("Result: {}", result);
                 }
             } else {
-                println!("Result: {:?}", result);
+                println!("Result: {}", result);
             }
         }
         Err(e) => {
