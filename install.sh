@@ -53,9 +53,17 @@ fetch_latest_version() {
     local api_url="${REPO_BASE_URL}/releases/latest"
     local json=""
     if command -v curl >/dev/null 2>&1; then
-        json=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api_url" 2>/dev/null) || json=""
+        if [ -n "$GITHUB_TOKEN" ]; then
+            json=$(curl --connect-timeout 10 --max-time 30 -fsSL -H "Authorization: token $GITHUB_TOKEN" "$api_url" 2>/dev/null) || json=""
+        else
+            json=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api_url" 2>/dev/null) || json=""
+        fi
     elif command -v wget >/dev/null 2>&1; then
-        json=$(wget --timeout=30 -q -O - "$api_url" 2>/dev/null) || json=""
+        if [ -n "$GITHUB_TOKEN" ]; then
+            json=$(wget --timeout=30 -q -O - --header="Authorization: token $GITHUB_TOKEN" "$api_url" 2>/dev/null) || json=""
+        else
+            json=$(wget --timeout=30 -q -O - "$api_url" 2>/dev/null) || json=""
+        fi
     fi
     echo "$json" | grep -m1 '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/' | sed 's/^v//'
 }
