@@ -5,7 +5,7 @@ use edamame_core::api::api_core::*;
 use edamame_core::api::api_rpc::*;
 use envcrypt::envc;
 use lazy_static::lazy_static;
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, ErrorKind, Write};
 use std::process::exit;
 
 const ERROR_CODE_SERVER_ERROR: i32 = 12;
@@ -19,6 +19,57 @@ lazy_static! {
         envc!("EDAMAME_CLIENT_PEM").trim_matches('"').to_string();
     pub static ref EDAMAME_CLIENT_KEY: String =
         envc!("EDAMAME_CLIENT_KEY").trim_matches('"').to_string();
+}
+
+/// Write to stdout with retry on WouldBlock/EAGAIN and graceful handling of
+/// BrokenPipe. Regular `println!` panics when stdout is non-blocking and the
+/// pipe buffer is full (common when the CLI is piped through shell processing
+/// that doesn't drain fast enough). This function retries transient errors
+/// and silently succeeds on pipe closure.
+fn write_stdout(data: &str) -> io::Result<()> {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    let mut buf = data.as_bytes();
+    while !buf.is_empty() {
+        match handle.write(buf) {
+            Ok(n) => buf = &buf[n..],
+            Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+                continue;
+            }
+            Err(e) if e.kind() == ErrorKind::BrokenPipe => return Ok(()),
+            Err(e) => return Err(e),
+        }
+    }
+    match handle.write_all(b"\n") {
+        Ok(()) => {}
+        Err(e) if e.kind() == ErrorKind::BrokenPipe => return Ok(()),
+        Err(e) if e.kind() == ErrorKind::WouldBlock => {
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+                match handle.write_all(b"\n") {
+                    Ok(()) => break,
+                    Err(e) if e.kind() == ErrorKind::WouldBlock => continue,
+                    Err(e) if e.kind() == ErrorKind::BrokenPipe => return Ok(()),
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+        Err(e) => return Err(e),
+    }
+    match handle.flush() {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == ErrorKind::BrokenPipe => Ok(()),
+        Err(e) if e.kind() == ErrorKind::WouldBlock => {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+            match handle.flush() {
+                Ok(()) => Ok(()),
+                Err(e) if e.kind() == ErrorKind::BrokenPipe => Ok(()),
+                Err(_) => Ok(()),
+            }
+        }
+        Err(e) => Err(e),
+    }
 }
 
 fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
@@ -216,67 +267,66 @@ fn make_example_value(arg_type: &str, arg_name: &str) -> String {
 }
 
 fn print_method_help_with_meta(method: &str, return_type: &str, args_meta: &[(String, String)]) {
-    println!("Method: {}", method);
-    println!("Return type: {}", return_type);
+    let _ = write_stdout(&format!("Method: {}", method));
+    let _ = write_stdout(&format!("Return type: {}", return_type));
     if !args_meta.is_empty() {
-        println!("Arguments:");
+        let _ = write_stdout("Arguments:");
         for (name, arg_type) in args_meta {
-            println!("  - {}: {}", name, arg_type);
+            let _ = write_stdout(&format!("  - {}: {}", name, arg_type));
         }
     } else {
-        println!("Arguments: None");
+        let _ = write_stdout("Arguments: None");
     }
 
-    println!("\nUsage examples:");
+    let _ = write_stdout("\nUsage examples:");
     if !args_meta.is_empty() {
-        // Array form (positional JSON values)
         let example_values: Vec<String> = args_meta
             .iter()
             .map(|(name, ty)| make_example_value(ty, name))
             .collect();
-        println!(
+        let _ = write_stdout(&format!(
             "  edamame_cli rpc {} '[{}]'",
             method,
             example_values.join(", ")
-        );
-        println!(
+        ));
+        let _ = write_stdout(&format!(
             "  edamame_cli rpc {} '[{}]' --pretty",
             method,
             example_values.join(", ")
-        );
+        ));
 
-        // Object form (named fields)
         let example_object_fields: Vec<String> = args_meta
             .iter()
             .map(|(name, ty)| format!("\"{}\": {}", name, make_example_value(ty, name)))
             .collect();
-        // escape braces in format string by doubling them ({{ -> {, }} -> })
-        println!(
+        let _ = write_stdout(&format!(
             "  edamame_cli rpc {} '{{{}}}'",
             method,
             example_object_fields.join(", ")
-        );
-        println!(
+        ));
+        let _ = write_stdout(&format!(
             "  edamame_cli rpc {} '{{{}}}' --pretty",
             method,
             example_object_fields.join(", ")
-        );
+        ));
 
-        // Parameter mapping for array form
-        println!("\nParameter mapping (array form):");
+        let _ = write_stdout("\nParameter mapping (array form):");
         for (i, (name, arg_type)) in args_meta.iter().enumerate() {
-            println!("  [{}] -> {} ({})", i, name, arg_type);
+            let _ = write_stdout(&format!("  [{}] -> {} ({})", i, name, arg_type));
         }
 
-        println!("\nNotes:");
-        println!("  - You can pass arguments as a JSON array of values or a single JSON object.");
-        println!(
-            "  - In array form, each element must be a valid JSON literal of the expected type."
+        let _ = write_stdout("\nNotes:");
+        let _ = write_stdout(
+            "  - You can pass arguments as a JSON array of values or a single JSON object.",
         );
-        println!("  - In object form, use the exact argument names shown above as keys.");
+        let _ = write_stdout(
+            "  - In array form, each element must be a valid JSON literal of the expected type.",
+        );
+        let _ =
+            write_stdout("  - In object form, use the exact argument names shown above as keys.");
     } else {
-        println!("  edamame_cli rpc {}", method);
-        println!("  edamame_cli rpc {} --pretty", method);
+        let _ = write_stdout(&format!("  edamame_cli rpc {}", method));
+        let _ = write_stdout(&format!("  edamame_cli rpc {} --pretty", method));
     }
 }
 
@@ -446,17 +496,18 @@ fn handle_rpc(method: String, json_args_array: String, pretty: bool, verbose: bo
         &EDAMAME_TARGET,
     ) {
         Ok(result) => {
-            if pretty {
-                // Try to parse the result as JSON
+            let output = if pretty {
                 if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&result) {
-                    // Pretty print the JSON
-                    println!("{}", serde_json::to_string_pretty(&json_value).unwrap());
+                    serde_json::to_string_pretty(&json_value).unwrap()
                 } else {
-                    // If it's not valid JSON, print as is
-                    println!("Result: {}", result);
+                    format!("Result: {}", result)
                 }
             } else {
-                println!("Result: {}", result);
+                format!("Result: {}", result)
+            };
+            if let Err(e) = write_stdout(&output) {
+                eprintln!(">>>> Error writing to stdout: {}", e);
+                return ERROR_CODE_SERVER_ERROR;
             }
         }
         Err(e) => {
@@ -488,12 +539,12 @@ fn handle_list_methods(pretty: bool, verbose: bool) -> i32 {
     methods.sort();
 
     if pretty {
-        println!("Available RPC methods:");
+        let _ = write_stdout("Available RPC methods:");
         for method in methods {
-            println!("  {}", method);
+            let _ = write_stdout(&format!("  {}", method));
         }
     } else {
-        println!("Available RPC methods: {:?}", methods);
+        let _ = write_stdout(&format!("Available RPC methods: {:?}", methods));
     }
     0
 }
@@ -565,7 +616,7 @@ fn handle_list_method_infos(verbose: bool) -> i32 {
             }
         };
 
-        println!("Method: {}, Info: {:?}", method, info);
+        let _ = write_stdout(&format!("Method: {}, Info: {:?}", method, info));
     }
     0
 }
@@ -624,7 +675,9 @@ fn interactive_mode(verbose: bool) {
             &EDAMAME_CLIENT_KEY,
             &EDAMAME_TARGET,
         ) {
-            Ok(result) => println!("Result: {:?}", result),
+            Ok(result) => {
+                let _ = write_stdout(&format!("Result: {:?}", result));
+            }
             Err(e) => eprintln!(">>>> Error calling RPC method: {:?}", e),
         }
     }
