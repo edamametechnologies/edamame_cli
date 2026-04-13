@@ -44,17 +44,15 @@ fn write_stdout(data: &str) -> io::Result<()> {
     match handle.write_all(b"\n") {
         Ok(()) => {}
         Err(e) if e.kind() == ErrorKind::BrokenPipe => return Ok(()),
-        Err(e) if e.kind() == ErrorKind::WouldBlock => {
-            loop {
-                std::thread::sleep(std::time::Duration::from_millis(1));
-                match handle.write_all(b"\n") {
-                    Ok(()) => break,
-                    Err(e) if e.kind() == ErrorKind::WouldBlock => continue,
-                    Err(e) if e.kind() == ErrorKind::BrokenPipe => return Ok(()),
-                    Err(e) => return Err(e),
-                }
+        Err(e) if e.kind() == ErrorKind::WouldBlock => loop {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+            match handle.write_all(b"\n") {
+                Ok(()) => break,
+                Err(e) if e.kind() == ErrorKind::WouldBlock => continue,
+                Err(e) if e.kind() == ErrorKind::BrokenPipe => return Ok(()),
+                Err(e) => return Err(e),
             }
-        }
+        },
         Err(e) => return Err(e),
     }
     match handle.flush() {
