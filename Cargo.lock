@@ -1845,7 +1845,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#baf3c8dc6372bca7eea0fc32e3296e1209988439"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#7ac183b161590e2aec36d7e4a7e28d6bd15f364e"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1934,7 +1934,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#fcb1a3b5271dd122b707a93aecd29c88b0d32a12"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5904fb24889febb4719419511860b12b77e8e8b0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2347,7 +2347,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#bff5534002bf5afd32f20d52ef5250c55f1cc76f"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#4feaa7439559bfc74a22ad56931c32fec4fe9f5b"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -6163,9 +6163,9 @@ dependencies = [
 
 [[package]]
 name = "rayon"
-version = "1.11.0"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "368f01d005bf8fd9b1206fb6fa653e6c4a81ceb1466406b81792d87c5677a58f"
+checksum = "fb39b166781f92d482534ef4b4b1b2568f42613b53e5b6c160e24cfbfa30926d"
 dependencies = [
  "either",
  "rayon-core",
@@ -7387,7 +7387,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#5bfcafecc27273d2aea2cc12f360416893b360fb"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#e3b9b40d4d694adfa5cf9bf16743cf3d0aeeeaff"
 dependencies = [
  "anyhow",
  "chrono",
