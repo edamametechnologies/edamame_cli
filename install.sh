@@ -26,7 +26,7 @@ warn()  { printf "${YELLOW}[WARN]${NC} %s\n" "$1"; }
 error() { printf "${RED}[ERROR]${NC} %s\n" "$1"; exit 1; }
 
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_cli"
-FALLBACK_VERSION="1.1.2"
+FALLBACK_VERSION="1.1.4"
 
 detect_platform() {
     local uname_out
