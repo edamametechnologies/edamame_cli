@@ -26,7 +26,7 @@ warn()  { printf "${YELLOW}[WARN]${NC} %s\n" "$1"; }
 error() { printf "${RED}[ERROR]${NC} %s\n" "$1"; exit 1; }
 
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_cli"
-FALLBACK_VERSION="1.1.4"
+FALLBACK_VERSION="1.2.0"
 
 detect_platform() {
     local uname_out
@@ -50,7 +50,9 @@ download_file() {
 }
 
 fetch_latest_version() {
-    local api_url="${REPO_BASE_URL}/releases/latest"
+    local owner_repo
+    owner_repo=$(echo "$REPO_BASE_URL" | sed 's|https://github.com/||')
+    local api_url="https://api.github.com/repos/${owner_repo}/releases/latest"
     local json=""
     if command -v curl >/dev/null 2>&1; then
         if [ -n "$GITHUB_TOKEN" ]; then
