@@ -35,6 +35,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
 
     env:
+      CC_PREFER_CLANG_CL_OVER_MSVC: "1"
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
       PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
       EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
@@ -150,13 +151,6 @@ jobs:
           if (-not (dotnet tool list --global | Select-String -Pattern "AzureSignTool")) {
             dotnet tool install --global AzureSignTool
           }
-
-      - name: Select MSVC 14.43 toolset
-        if: matrix.os == 'windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-          toolset: 14.43
 
       - name: Set environment variables
         shell: bash
