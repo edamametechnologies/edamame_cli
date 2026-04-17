@@ -136,6 +136,14 @@ jobs:
           brew install protobuf
           brew install wget
 
+      - name: Fix MSVC C1069 (TMP path with spaces)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "C:\Temp" | Out-Null
+          echo "TMP=C:\Temp" >> $env:GITHUB_ENV
+          echo "TEMP=C:\Temp" >> $env:GITHUB_ENV
+
       - name: Setup .NET 8.0 for Windows
         if: matrix.os == 'windows'
         uses: actions/setup-dotnet@v3
