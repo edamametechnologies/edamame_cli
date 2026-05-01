@@ -236,14 +236,24 @@ jobs:
           make test
         continue-on-error: true
 
-      # Runtime runner protection: dump findings and fail the job if any
-      # non-dismissed HIGH/CRITICAL finding fired during the run.
+      # Runtime runner protection: dump findings (visibility-only on
+      # github-hosted ephemeral runners). The gate is intentionally
+      # NOT failing the job here (`exit_on_vulnerability_findings:
+      # false`) because every fresh ephemeral runner produces the same
+      # baseline CI-runner false positives (Runner.Worker.exe outbound
+      # egress, .env created by repo checkout, etc.) and there is no
+      # persistent dismissal store to suppress them. Findings still
+      # appear in the log via `dump_vulnerability_findings: true`. The
+      # gate is enforced (`true`) only on self-hosted runners where
+      # dismissals persist across runs. See workspace.mdc
+      # "Self-Hosted Runner Protection" follow-up: the structural FP
+      # suppression for github-hosted runners is tracked separately.
       - name: EDAMAME Posture vulnerability gate
         if: always()
         uses: edamametechnologies/edamame_posture_action@v1
         with:
           dump_vulnerability_findings: true
-          exit_on_vulnerability_findings: true
+          exit_on_vulnerability_findings: false
 
       - name: Slack alerts
         if: steps.tests.outcome != 'success'
