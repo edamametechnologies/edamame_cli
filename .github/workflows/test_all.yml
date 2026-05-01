@@ -59,6 +59,19 @@ jobs:
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
           checkout: true
+          # Runtime runner protection. Applies on github-hosted ephemeral
+          # runners too -- supply-chain compromise of a CI dep would
+          # surface as anomalous traffic / sensitive-material egress
+          # during the test job. See workspace.mdc "Self-Hosted Runner
+          # Protection".
+          packet_capture: true
+          vulnerability_detection: true
+          vulnerability_detection_interval: "60"
+          agentic_mode: analyze
+          agentic_provider: edamame
+          agentic_interval: 600
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
           # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
@@ -222,6 +235,15 @@ jobs:
         run: |
           make test
         continue-on-error: true
+
+      # Runtime runner protection: dump findings and fail the job if any
+      # non-dismissed HIGH/CRITICAL finding fired during the run.
+      - name: EDAMAME Posture vulnerability gate
+        if: always()
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          dump_vulnerability_findings: true
+          exit_on_vulnerability_findings: true
 
       - name: Slack alerts
         if: steps.tests.outcome != 'success'
