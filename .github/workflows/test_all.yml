@@ -250,14 +250,15 @@ jobs:
       # appear in the log via `dump_vulnerability_findings: true`. The
       # gate is enforced (`true`) only on self-hosted runners where
       # dismissals persist across runs. See workspace.mdc
-      # "Self-Hosted Runner Protection" follow-up: the structural FP
-      # suppression for github-hosted runners is tracked separately.
+      # "Self-Hosted Runner Protection" and edamame_app/CICDFPS.md
+      # "Follow-up Tasks" -- to be re-enabled once the v1.3.1 posture
+      # release with severity grading propagates.
       - name: EDAMAME Posture vulnerability gate
         if: always()
         uses: edamametechnologies/edamame_posture_action@v1
         with:
           dump_vulnerability_findings: true
-          exit_on_vulnerability_findings: true
+          exit_on_vulnerability_findings: false
 
       - name: Slack alerts
         if: steps.tests.outcome != 'success'
