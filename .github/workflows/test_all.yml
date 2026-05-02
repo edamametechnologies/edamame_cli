@@ -198,21 +198,43 @@ jobs:
           # ('os error 32: process cannot access the file because it
           # is being used by another process') driven by rustc's
           # parallel codegen units overlapping link.exe / build
-          # script writes. The race resolves on retry; three attempts
-          # is enough empirically. Other platforms get a single pass
-          # so the wrapper is a no-op there.
-          attempt=1
-          max_attempts=3
-          until cargo build --release; do
-            rc=$?
-            if [[ "$RUNNER_OS" != "Windows" ]] || (( attempt >= max_attempts )); then
-              echo "cargo build failed after ${attempt} attempt(s) (rc=$rc)"
-              exit "$rc"
-            fi
-            echo "cargo build failed on Windows (attempt ${attempt}/${max_attempts}, rc=$rc) - retrying after 5s"
+          # script writes. Defender exclusions are already set on
+          # these runners so AV is not the cause; this is a known
+          # cargo-on-Windows race that does not always self-resolve
+          # on a retry with the same parallelism.
+          #
+          # Strategy on Windows (other platforms run a single pass):
+          #   - Attempt 1: default parallelism (fast path).
+          #   - Attempt 2: --jobs 1 (serialize crate compilation).
+          #   - Attempt 3: --jobs 1 + RUSTFLAGS=-Ccodegen-units=1
+          #     (also serialize within each crate -- slowest but
+          #     eliminates the race entirely).
+          # Cached object files from earlier attempts survive between
+          # retries so each retry only recompiles what was missing.
+          if [[ "$RUNNER_OS" != "Windows" ]]; then
+            cargo build --release
+            exit 0
+          fi
+          set +e
+          cargo build --release
+          rc=$?
+          if (( rc != 0 )); then
+            echo "cargo build failed (attempt 1/3, rc=$rc) - retrying with --jobs 1"
             sleep 5
-            attempt=$((attempt + 1))
-          done
+            cargo build --release --jobs 1
+            rc=$?
+          fi
+          if (( rc != 0 )); then
+            echo "cargo build failed (attempt 2/3, rc=$rc) - retrying with --jobs 1 + codegen-units=1"
+            sleep 5
+            RUSTFLAGS="-C codegen-units=1" cargo build --release --jobs 1
+            rc=$?
+          fi
+          set -e
+          if (( rc != 0 )); then
+            echo "cargo build failed after 3 attempts (rc=$rc)"
+            exit "$rc"
+          fi
   
       - name: Signing for macOS
         if: matrix.os == 'macos'
@@ -257,23 +279,34 @@ jobs:
         shell: bash
         run: |
           # Same Windows file-locking race as the "Build application"
-          # step above: rustc parallel codegen units race link.exe /
-          # build script writes (e.g. prost-build descriptor) and
-          # produce 'os error 32: process cannot access the file
-          # because it is being used by another process'. Retry on
-          # Windows; non-Windows passes through with a single attempt.
-          attempt=1
-          max_attempts=3
-          until make test; do
-            rc=$?
-            if [[ "$RUNNER_OS" != "Windows" ]] || (( attempt >= max_attempts )); then
-              echo "make test failed after ${attempt} attempt(s) (rc=$rc)"
-              exit "$rc"
-            fi
-            echo "make test failed on Windows (attempt ${attempt}/${max_attempts}, rc=$rc) - retrying after 5s"
+          # step above. The Makefile target is `cargo test --
+          # --nocapture`; on Windows we fall back to single-job /
+          # single codegen-unit retries to escape the parallel
+          # link.exe race when the default-parallel run hits it.
+          if [[ "$RUNNER_OS" != "Windows" ]]; then
+            make test
+            exit 0
+          fi
+          set +e
+          make test
+          rc=$?
+          if (( rc != 0 )); then
+            echo "make test failed (attempt 1/3, rc=$rc) - retrying with --jobs 1"
             sleep 5
-            attempt=$((attempt + 1))
-          done
+            cargo test --jobs 1 -- --nocapture
+            rc=$?
+          fi
+          if (( rc != 0 )); then
+            echo "make test failed (attempt 2/3, rc=$rc) - retrying with --jobs 1 + codegen-units=1"
+            sleep 5
+            RUSTFLAGS="-C codegen-units=1" cargo test --jobs 1 -- --nocapture
+            rc=$?
+          fi
+          set -e
+          if (( rc != 0 )); then
+            echo "make test failed after 3 attempts (rc=$rc)"
+            exit "$rc"
+          fi
         continue-on-error: true
 
       # Runtime runner protection: dump findings (visibility-only on
