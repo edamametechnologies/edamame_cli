@@ -193,7 +193,26 @@ jobs:
       - name: Build application
         shell: bash
         run: |
-          cargo build --release
+          # Windows cargo builds intermittently hit a file-locking
+          # race during link / prost-build descriptor generation
+          # ('os error 32: process cannot access the file because it
+          # is being used by another process') driven by rustc's
+          # parallel codegen units overlapping link.exe / build
+          # script writes. The race resolves on retry; three attempts
+          # is enough empirically. Other platforms get a single pass
+          # so the wrapper is a no-op there.
+          attempt=1
+          max_attempts=3
+          until cargo build --release; do
+            rc=$?
+            if [[ "$RUNNER_OS" != "Windows" ]] || (( attempt >= max_attempts )); then
+              echo "cargo build failed after ${attempt} attempt(s) (rc=$rc)"
+              exit "$rc"
+            fi
+            echo "cargo build failed on Windows (attempt ${attempt}/${max_attempts}, rc=$rc) - retrying after 5s"
+            sleep 5
+            attempt=$((attempt + 1))
+          done
   
       - name: Signing for macOS
         if: matrix.os == 'macos'
@@ -237,7 +256,24 @@ jobs:
         id: tests
         shell: bash
         run: |
-          make test
+          # Same Windows file-locking race as the "Build application"
+          # step above: rustc parallel codegen units race link.exe /
+          # build script writes (e.g. prost-build descriptor) and
+          # produce 'os error 32: process cannot access the file
+          # because it is being used by another process'. Retry on
+          # Windows; non-Windows passes through with a single attempt.
+          attempt=1
+          max_attempts=3
+          until make test; do
+            rc=$?
+            if [[ "$RUNNER_OS" != "Windows" ]] || (( attempt >= max_attempts )); then
+              echo "make test failed after ${attempt} attempt(s) (rc=$rc)"
+              exit "$rc"
+            fi
+            echo "make test failed on Windows (attempt ${attempt}/${max_attempts}, rc=$rc) - retrying after 5s"
+            sleep 5
+            attempt=$((attempt + 1))
+          done
         continue-on-error: true
 
       # Runtime runner protection: dump findings (visibility-only on
