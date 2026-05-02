@@ -247,7 +247,7 @@ jobs:
       # baseline CI-runner false positives (Runner.Worker.exe outbound
       # egress, .env created by repo checkout, etc.) and there is no
       # persistent dismissal store to suppress them. Findings still
-      # appear in the log via `dump_vulnerability_findings: false`. The
+      # appear in the log via `dump_vulnerability_findings: true`. The
       # gate is enforced (`true`) only on self-hosted runners where
       # dismissals persist across runs. See workspace.mdc
       # "Self-Hosted Runner Protection" follow-up: the structural FP
@@ -256,8 +256,8 @@ jobs:
         if: always()
         uses: edamametechnologies/edamame_posture_action@v1
         with:
-          dump_vulnerability_findings: false
-          exit_on_vulnerability_findings: false
+          dump_vulnerability_findings: true
+          exit_on_vulnerability_findings: true
 
       - name: Slack alerts
         if: steps.tests.outcome != 'success'
