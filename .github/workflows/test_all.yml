@@ -35,6 +35,18 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
 
     env:
+      # Force cargo to use the system git binary (which inherits the
+      # `git config --global url."...".insteadOf "..."` rewrite set up
+      # below) instead of libgit2 for fetching private dependencies.
+      # libgit2-driven fetches from github-hosted ubuntu runners have
+      # been hitting persistent 403 / IP-allow-list rejection on
+      # private edamametechnologies repos (see workspace.mdc "Known
+      # transient CI failures #2"). 5 consecutive ubuntu-latest runs
+      # failed with the same signature while macOS/Windows lanes
+      # succeeded -- well past the documented 3-retry escalation
+      # threshold. system git auths via the credential rewrite and
+      # bypasses the libgit2 path entirely.
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
       PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
       EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
