@@ -26,8 +26,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # ubuntu lane runs on the self-hosted vm-runner-linux pool to
+          # bypass the github-hosted ubuntu IP allow-list 403 issue
+          # against private edamametechnologies repos. 5 consecutive
+          # ubuntu-latest runs failed during cargo's `git fetch` of
+          # `edamame_core` with `403; class=Http (34)`; switching cargo
+          # to system git (CARGO_NET_GIT_FETCH_WITH_CLI=true) reproduced
+          # the same 403 from the system git binary, so the issue is
+          # not libgit2-specific -- it is the egress IP being blocked
+          # by the org-side allow list for the entire ubuntu pool.
+          # See workspace.mdc "Known transient CI failures #2 -- cargo
+          # git fetch 403 from github-hosted ubuntu runners on private
+          # workspace crates" for the full diagnosis. Self-hosted
+          # vm-runner-linux is on a permanently-allowlisted Azure VM.
           - os: ubuntu
-            runs-on: ubuntu-latest
+            runs-on: vm-runner-linux
           - os: macos
             runs-on: macos-latest
           - os: windows
@@ -35,18 +48,6 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
 
     env:
-      # Force cargo to use the system git binary (which inherits the
-      # `git config --global url."...".insteadOf "..."` rewrite set up
-      # below) instead of libgit2 for fetching private dependencies.
-      # libgit2-driven fetches from github-hosted ubuntu runners have
-      # been hitting persistent 403 / IP-allow-list rejection on
-      # private edamametechnologies repos (see workspace.mdc "Known
-      # transient CI failures #2"). 5 consecutive ubuntu-latest runs
-      # failed with the same signature while macOS/Windows lanes
-      # succeeded -- well past the documented 3-retry escalation
-      # threshold. system git auths via the credential rewrite and
-      # bypasses the libgit2 path entirely.
-      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
       EDAMAME_APP_SENTRY: ${{ secrets.EDAMAME_APP_SENTRY }}
       PWNED_API_KEY: ${{ secrets.PWNED_API_KEY }}
       EDAMAME_TARGET: ${{ secrets.EDAMAME_TARGET }}
@@ -71,17 +72,18 @@ jobs:
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
           checkout: true
-          # Runtime runner protection. Applies on github-hosted ephemeral
-          # runners too -- supply-chain compromise of a CI dep would
-          # surface as anomalous traffic / sensitive-material egress
-          # during the test job. See workspace.mdc "Self-Hosted Runner
-          # Protection".
+          # Runner protection. Required on the self-hosted vm-runner-linux
+          # lane (workspace.mdc "Self-Hosted Runner Protection") and
+          # also kept on for github-hosted macOS/Windows so a
+          # supply-chain compromise of a CI dep would surface as
+          # anomalous traffic / sensitive-material egress during the
+          # test job. The github-hosted ubuntu vulnerability-start
+          # hang historically blocked enabling this on the ubuntu
+          # lane, but the lane has now moved to vm-runner-linux which
+          # runs the detector cleanly (see test_linux.yml in
+          # edamame_app for the canonical self-hosted Linux pattern).
           packet_capture: true
-          # NOTE: vulnerability_detection is gated off on Linux because
-          # `vulnerability-start` currently hangs on github-hosted ubuntu
-          # runners (under investigation). macOS/Windows runners use the
-          # full detector. See workspace.mdc.
-          vulnerability_detection: ${{ runner.os != 'Linux' }}
+          vulnerability_detection: true
           vulnerability_detection_interval: "60"
           agentic_mode: analyze
           agentic_provider: edamame
@@ -321,25 +323,21 @@ jobs:
           fi
         continue-on-error: true
 
-      # Runtime runner protection: dump findings (visibility-only on
-      # github-hosted ephemeral runners). The gate is intentionally
-      # NOT failing the job here (`exit_on_vulnerability_findings:
-      # false`) because every fresh ephemeral runner produces the same
-      # baseline CI-runner false positives (Runner.Worker.exe outbound
-      # egress, .env created by repo checkout, etc.) and there is no
-      # persistent dismissal store to suppress them. Findings still
-      # appear in the log via `dump_vulnerability_findings: true`. The
-      # gate is enforced (`true`) only on self-hosted runners where
-      # dismissals persist across runs. See workspace.mdc
-      # "Self-Hosted Runner Protection" and edamame_app/CICDFPS.md
-      # "Follow-up Tasks" -- to be re-enabled once the v1.3.1 posture
-      # release with severity grading propagates.
+      # Runner protection. The gate is enforced strictly on the
+      # self-hosted vm-runner-linux lane because that runner has a
+      # persistent dismissal store and any non-dismissed
+      # HIGH/CRITICAL finding represents a real anomaly that must
+      # block the job (workspace.mdc "Self-Hosted Runner Protection").
+      # On github-hosted macOS/Windows the gate is visibility-only
+      # (`false`) because every fresh ephemeral runner produces the
+      # same baseline CI-runner false positives with no persistent
+      # dismissal store to suppress them.
       - name: EDAMAME Posture vulnerability gate
         if: always()
         uses: edamametechnologies/edamame_posture_action@v1
         with:
           dump_vulnerability_findings: true
-          exit_on_vulnerability_findings: false
+          exit_on_vulnerability_findings: ${{ matrix.os == 'ubuntu' }}
 
       - name: Slack alerts
         if: steps.tests.outcome != 'success'
