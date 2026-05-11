@@ -298,19 +298,42 @@ jobs:
         id: install
         shell: pwsh
         run: |
+          function Install-FromLatestGithubRelease {
+            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/edamametechnologies/edamame_cli/releases/latest" -UseBasicParsing
+            $version = $release.tag_name.TrimStart('v')
+            $assetName = "edamame_cli-$version-x86_64-pc-windows-msvc.exe"
+            $asset = $release.assets | Where-Object { $_.name -eq $assetName } | Select-Object -First 1
+            if (-not $asset) {
+              throw "Latest GitHub release $($release.tag_name) does not contain $assetName"
+            }
+            $binDir = Join-Path $env:RUNNER_TEMP "edamame_cli_bin"
+            New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+            $dest = Join-Path $binDir "edamame_cli.exe"
+            Write-Host "Falling back to latest GitHub release asset: $($asset.browser_download_url)"
+            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $dest -UseBasicParsing
+            Add-Content -Path $env:GITHUB_PATH -Value $binDir
+          }
+
           $maxRetries = 3
           $retryDelay = 30
+          $installed = $false
           for ($i = 1; $i -le $maxRetries; $i++) {
             Write-Host "Chocolatey install attempt $i/$maxRetries"
             choco install edamame-cli -y --no-progress
-            if ($LASTEXITCODE -eq 0) { break }
+            if ($LASTEXITCODE -eq 0) {
+              $installed = $true
+              break
+            }
             if ($i -lt $maxRetries) {
               Write-Host "Install failed, retrying in ${retryDelay}s..."
               Start-Sleep -Seconds $retryDelay
             } else {
-              Write-Host "All install attempts failed"
-              exit 1
+              Write-Host "All Chocolatey install attempts failed"
             }
+          }
+          if (-not $installed) {
+            Write-Warning "Chocolatey install failed; validating latest GitHub release binary instead."
+            Install-FromLatestGithubRelease
           }
 
       - name: Verify binary is available
