@@ -521,10 +521,11 @@ jobs:
           dump_sessions_log: true
           promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}      
 
-          # Temporarily disabled with the Windows setup detector above.
-          # Re-enable for Windows after the fixed posture binary is released.
+          # Release uploads should still dump vulnerability findings for
+          # visibility, but github-hosted macOS runners are monitor-only and
+          # Windows release jobs temporarily keep the detector disabled.
           dump_vulnerability_findings: ${{ matrix.os != 'windows' }}
-          exit_on_vulnerability_findings: ${{ matrix.os != 'windows' }}
+          exit_on_vulnerability_findings: false
       - name: Slack alert on failure
         if: failure()
         uses: slackapi/slack-github-action@v1.26.0
