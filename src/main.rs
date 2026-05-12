@@ -227,6 +227,7 @@ fn initialize_core(console_logging: bool) {
         mac: "".to_string(),
         peer_ids: vec![],
         is_online: false,
+        flutter_app_version: "".to_string(),
     };
 
     // By changing the executable type, we can have different logging behavior
