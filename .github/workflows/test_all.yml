@@ -204,6 +204,39 @@ jobs:
             echo "KEYCHAIN_PATH=/tmp/app-signing.keychain-db" >> $GITHUB_ENV
             echo "BINARY_PATH=./target/release/edamame_cli" >> $GITHUB_ENV
   
+      - name: Add Defender exclusions for build temp paths
+        if: matrix.os == 'windows'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          # Mitigate Defender real-time-scan race on prost-build's
+          # `$env:TEMP\prost-buildXXX\prost-descriptor-set` and on
+          # rlib renames in `target\`. tonic-build's in-process
+          # 3x retry is not enough -- each retry creates a new temp
+          # dir and Defender hits it again. Exclude the canonical
+          # locations the build chain writes through.
+          $tempDir = $env:TEMP
+          $repoDir = "${env:GITHUB_WORKSPACE}"
+          $targetDir = "${env:GITHUB_WORKSPACE}\target"
+          $cargoHome = "${env:USERPROFILE}\.cargo"
+          $rustupHome = "${env:USERPROFILE}\.rustup"
+          foreach ($p in @($tempDir, $repoDir, $targetDir, $cargoHome, $rustupHome)) {
+            try {
+              Add-MpPreference -ExclusionPath $p -ErrorAction Stop
+              Write-Host "Added Defender ExclusionPath: $p"
+            } catch {
+              Write-Host "WARN: failed to add Defender ExclusionPath for ${p}: $_"
+            }
+          }
+          foreach ($e in @("cargo.exe","rustc.exe","rustdoc.exe","link.exe","cl.exe","lib.exe","mt.exe","cmake.exe","ninja.exe","light.exe","candle.exe","signtool.exe","AzureSignTool.exe")) {
+            try {
+              Add-MpPreference -ExclusionProcess $e -ErrorAction Stop
+              Write-Host "Added Defender ExclusionProcess: $e"
+            } catch {
+              Write-Host "WARN: failed to add Defender ExclusionProcess for ${e}: $_"
+            }
+          }
+
       - name: Build application
         shell: bash
         run: |
@@ -212,10 +245,11 @@ jobs:
           # ('os error 32: process cannot access the file because it
           # is being used by another process') driven by rustc's
           # parallel codegen units overlapping link.exe / build
-          # script writes. Defender exclusions are already set on
-          # these runners so AV is not the cause; this is a known
-          # cargo-on-Windows race that does not always self-resolve
-          # on a retry with the same parallelism.
+          # script writes. The step above adds Defender exclusions
+          # for $env:TEMP and target/ but the race can still slip
+          # through between exclusion-apply and file-touch, so we
+          # keep the retry ladder below as a belt-and-suspenders
+          # safety net.
           #
           # Strategy on Windows (other platforms run a single pass):
           #   - Attempt 1: default parallelism (fast path).
