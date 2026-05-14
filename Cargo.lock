@@ -1719,7 +1719,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_cli"
-version = "1.3.7"
+version = "1.3.8"
 dependencies = [
  "cargo-deb",
  "clap",
@@ -1734,8 +1734,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "1.3.7"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#69edf4ecb5ff9db5e991ec48a1a0f6a18e5f8a7e"
+version = "1.3.8"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#8e7bc4f2446ab3b5262627b3d5b133db94aa01a9"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1823,8 +1823,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.3.7"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#e60ea82e58bef35c3db6e0b7740e51699090a956"
+version = "1.3.8"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#1d74cce85d38f2bac433678298a1161f232ebcb1"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2208,8 +2208,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "1.3.7"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#cabfccdae224e07ff8978dd65e1006e69542e377"
+version = "1.3.8"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#80efabf3ee4c1e5eae3636fd4c2eddc10e8dbe2f"
 dependencies = [
  "anyhow",
  "arc-swap",
