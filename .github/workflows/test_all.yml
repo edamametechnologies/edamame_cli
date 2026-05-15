@@ -357,21 +357,20 @@ jobs:
           fi
         continue-on-error: true
 
-      # Runner protection. The gate is enforced strictly on the
-      # self-hosted vm-runner-linux lane because that runner has a
-      # persistent dismissal store and any non-dismissed
-      # HIGH/CRITICAL finding represents a real anomaly that must
-      # block the job (workspace.mdc "Self-Hosted Runner Protection").
-      # On github-hosted macOS/Windows the gate is visibility-only
-      # (`false`) because every fresh ephemeral runner produces the
-      # same baseline CI-runner false positives with no persistent
-      # dismissal store to suppress them.
+      # Runner protection. The gate is enforced strictly on every lane
+      # -- the self-hosted vm-runner-linux runner per workspace.mdc
+      # "Self-Hosted Runner Protection", AND the github-hosted
+      # macOS/Windows ephemeral runners per workspace.mdc
+      # "Github-Hosted Runners (Enforced Gate)". Structural CI-runner
+      # FPs (Runner.Worker egress, .env checkout write, demo-mode-leak
+      # demo-vuln-* fixtures) are zeroed by the demo-mode-leak cleanup
+      # step BEFORE this gate runs.
       - name: EDAMAME Posture vulnerability gate
         if: always()
         uses: edamametechnologies/edamame_posture_action@v1
         with:
           dump_vulnerability_findings: true
-          exit_on_vulnerability_findings: ${{ matrix.os == 'ubuntu' }}
+          exit_on_vulnerability_findings: true
 
       - name: Slack alerts
         if: steps.tests.outcome != 'success'
