@@ -72,11 +72,8 @@ jobs:
           edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
           edamame_id: ${{ github.run_id }}
           checkout: true
-          # Runner protection is strict on the self-hosted vm-runner-linux
-          # lane. GitHub-hosted macOS/Windows keep vulnerability detection
-          # enabled for visibility, but their trailing gate is monitor-only
-          # because they use the previously released detector and have no
-          # persistent dismissal store.
+          # Runner protection is strict on every lane. GitHub-hosted runners
+          # still dump and fail on findings so CI false positives stay tracked.
           packet_capture: true
           vulnerability_detection: true
           vulnerability_detection_interval: "60"
@@ -352,15 +349,14 @@ jobs:
           fi
         continue-on-error: true
 
-      # Strict on self-hosted Linux; monitor-only on github-hosted
-      # macOS/Windows so previous-release CI FPs are dumped without
-      # blocking the source gate.
+      # Strict on every lane. Test-induced findings must be cleaned before this
+      # step; detector false positives must be tracked and fixed, not bypassed.
       - name: EDAMAME Posture vulnerability gate
         if: always()
         uses: edamametechnologies/edamame_posture_action@v1
         with:
           dump_vulnerability_findings: true
-          exit_on_vulnerability_findings: ${{ matrix.runs-on == 'vm-runner-linux' }}
+          exit_on_vulnerability_findings: true
 
       - name: Slack alerts
         if: steps.tests.outcome != 'success'
