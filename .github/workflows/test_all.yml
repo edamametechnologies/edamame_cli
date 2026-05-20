@@ -93,6 +93,15 @@ jobs:
           git config --global user.name "EDAMAME Dev"
           git config --global url."https://edamamedev:${{ secrets.DEV_GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
+      # vm-runner-linux is a self-hosted Azure VM that does not ship with
+      # Rust globally on PATH for the runner user. dtolnay/rust-toolchain
+      # installs and sets up rustup deterministically. github-hosted
+      # ubuntu-latest/macos-latest/windows-2022 ship Rust pre-installed,
+      # but this step is also cheap on those (becomes a no-op after the
+      # first run because cargo is already on PATH).
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install additional packages w/ apt for linux
         if: matrix.os == 'ubuntu'
         shell: bash
