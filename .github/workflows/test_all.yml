@@ -64,6 +64,51 @@ jobs:
 
     steps:
 
+      # FP-CI-13 v2.1 (native variant): pre-Setup truncation of persisted
+      # vulnerability history on the self-hosted vm-runner-linux pool.
+      #
+      # The daemon on vm-runner-linux runs as the `edamame_posture` systemd
+      # service (uid=root). Its agentic state persists in
+      # `/root/.local/share/edamame/agentic_config.json::action_history`
+      # across jobs. Other workflows on the same runner (notably the
+      # edamame_app integration tests that exercise demo-mode notification
+      # triggers) can leave behind synthetic VulnerabilityDetection entries
+      # for demo fixtures (`/tmp/.hidden/xmrig`, `/tmp/.hidden/exfil.py`,
+      # `mining-` session UIDs from `edamame_core/src/demo_sessions.rs`).
+      # Because the daemon's carry-forward logic in
+      # `run_vulnerability_detector_tick()` merges active non-dismissed
+      # history entries into every tick's report (per the Vulnerability
+      # Finding Persistence invariant), those demo findings re-surface on
+      # the next job and trip its `EDAMAME Posture vulnerability gate`,
+      # even though demo mode itself is in-memory only and resets on
+      # daemon restart.
+      #
+      # Truncating the file BEFORE Setup EDAMAME Posture starts the daemon
+      # is the deterministic fix: the daemon reads the (now empty)
+      # history at startup and begins the job from a clean slate. Mirrors
+      # the FP-CI-13 v2.1 step in edamame_core/tests.yml; only the
+      # candidate paths differ (native runner has /root/.local/share +
+      # /home/$USER variants instead of the containerized /github/home).
+      # Gated on the self-hosted lane so github-hosted ubuntu/macos/
+      # windows slots (which are ephemeral and never inherit prior state)
+      # are unaffected.
+      - name: Pre-clean persisted vulnerability history (FP-CI-13 v2.1)
+        if: ${{ matrix.runs-on == 'vm-runner-linux' }}
+        shell: bash
+        run: |
+          set +e
+          echo "::group::Pre-Setup agentic_config.json truncation"
+          SUDO=""
+          command -v sudo >/dev/null 2>&1 && SUDO="sudo"
+          CANDIDATES=$($SUDO find /root /home /var/lib /__w -name agentic_config.json 2>/dev/null | sort -u)
+          for f in $CANDIDATES; do
+            if $SUDO test -f "$f"; then
+              $SUDO python3 -c 'import json, sys; p=sys.argv[1]; d=json.load(open(p)); hist=d.get("action_history",[]) or []; orig=len(hist); kept=[x for x in hist if (x.get("action_type") or {}).get("type")!="VulnerabilityDetection"]; removed=orig-len(kept); print("  "+p+" orig="+str(orig)+" kept="+str(len(kept))+" removed="+str(removed)); d["action_history"]=kept; json.dump(d, open(p,"w")) if removed else None' "$f" || true
+            fi
+          done
+          echo "::endgroup::"
+          set -e
+
       - name: Setup EDAMAME Posture
         uses: edamametechnologies/edamame_posture_action@v1
         with:
