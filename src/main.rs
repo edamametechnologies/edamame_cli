@@ -425,113 +425,115 @@ fn handle_rpc(method: String, json_args_array: String, pretty: bool, verbose: bo
     // `edamame_cli` does NOT have to be rebuilt every time a new RPC
     // method is added to `edamame_core` -- the daemon dispatches by name,
     // not by local stub.
-    let args_object_json: Option<String> = match serde_json::from_str::<serde_json::Value>(
-        &json_args_array,
-    ) {
-        Ok(serde_json::Value::Array(values)) => {
-            if values.is_empty() {
-                None
-            } else {
-                match fetch_method_meta(&method) {
-                    Ok((_ret, args_meta)) => {
-                        if values.len() != args_meta.len() {
-                            eprintln!(
-                                ">>>> Argument count mismatch for {}: provided {}, expected {}",
-                                method,
-                                values.len(),
-                                args_meta.len()
-                            );
-                            print_method_help_from_core(&method);
-                            return ERROR_CODE_PARAM;
-                        }
-                        let mut map = serde_json::Map::with_capacity(args_meta.len());
-                        for ((name, _ty), value) in args_meta.iter().zip(values.into_iter()) {
-                            map.insert(name.clone(), value);
-                        }
-                        match serde_json::to_string(&serde_json::Value::Object(map)) {
-                            Ok(s) => Some(s),
-                            Err(e) => {
-                                eprintln!(">>>> Error serializing positional arguments: {:?}", e);
+    let args_object_json: Option<String> =
+        match serde_json::from_str::<serde_json::Value>(&json_args_array) {
+            Ok(serde_json::Value::Array(values)) => {
+                if values.is_empty() {
+                    None
+                } else {
+                    match fetch_method_meta(&method) {
+                        Ok((_ret, args_meta)) => {
+                            if values.len() != args_meta.len() {
+                                eprintln!(
+                                    ">>>> Argument count mismatch for {}: provided {}, expected {}",
+                                    method,
+                                    values.len(),
+                                    args_meta.len()
+                                );
+                                print_method_help_from_core(&method);
                                 return ERROR_CODE_PARAM;
                             }
+                            let mut map = serde_json::Map::with_capacity(args_meta.len());
+                            for ((name, _ty), value) in args_meta.iter().zip(values.into_iter()) {
+                                map.insert(name.clone(), value);
+                            }
+                            match serde_json::to_string(&serde_json::Value::Object(map)) {
+                                Ok(s) => Some(s),
+                                Err(e) => {
+                                    eprintln!(
+                                        ">>>> Error serializing positional arguments: {:?}",
+                                        e
+                                    );
+                                    return ERROR_CODE_PARAM;
+                                }
+                            }
                         }
-                    }
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        eprintln!(
-                            ">>>> Cannot map positional arguments without API metadata. \
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            eprintln!(
+                                ">>>> Cannot map positional arguments without API metadata. \
                              If the daemon supports this method but did not return metadata, \
                              try the object form: edamame_cli rpc {} '{{\"arg1\": value, ...}}'",
-                            method
-                        );
+                                method
+                            );
+                            return ERROR_CODE_PARAM;
+                        }
+                    }
+                }
+            }
+            Ok(serde_json::Value::Object(map)) => {
+                // Object form: pass through verbatim. We still consult the daemon
+                // for a friendlier missing/unknown-fields diagnostic when the
+                // daemon knows the method; if it doesn't (or metadata lookup
+                // fails for any other reason), we forward the object as-is and
+                // let the daemon return the authoritative error.
+                if let Ok((_ret, args_meta)) = fetch_method_meta(&method) {
+                    let expected_names: Vec<String> =
+                        args_meta.iter().map(|(n, _)| n.clone()).collect();
+                    let provided_names: Vec<String> = map.keys().cloned().collect();
+                    let missing: Vec<String> = expected_names
+                        .iter()
+                        .filter(|n| !map.contains_key(*n))
+                        .cloned()
+                        .collect();
+                    let unknown: Vec<String> = provided_names
+                        .iter()
+                        .filter(|n| !expected_names.contains(*n))
+                        .cloned()
+                        .collect();
+                    if !missing.is_empty() || !unknown.is_empty() {
+                        if !missing.is_empty() {
+                            for m in &missing {
+                                eprintln!(
+                                    ">>>> Missing field '{}' in provided JSON object for method {}",
+                                    m, method
+                                );
+                            }
+                        }
+                        if !unknown.is_empty() {
+                            eprintln!("Unknown fields present: {}", unknown.join(", "));
+                            for u in &unknown {
+                                if let Some(sugg) = best_suggestion(u, &expected_names) {
+                                    eprintln!(
+                                        "     '{}' is not expected. Did you mean '{}' ?",
+                                        u, sugg
+                                    );
+                                }
+                            }
+                        }
+                        print_method_help_from_core(&method);
+                        return ERROR_CODE_PARAM;
+                    }
+                }
+                match serde_json::to_string(&serde_json::Value::Object(map)) {
+                    Ok(s) => Some(s),
+                    Err(e) => {
+                        eprintln!(">>>> Error serializing object arguments: {:?}", e);
                         return ERROR_CODE_PARAM;
                     }
                 }
             }
-        }
-        Ok(serde_json::Value::Object(map)) => {
-            // Object form: pass through verbatim. We still consult the daemon
-            // for a friendlier missing/unknown-fields diagnostic when the
-            // daemon knows the method; if it doesn't (or metadata lookup
-            // fails for any other reason), we forward the object as-is and
-            // let the daemon return the authoritative error.
-            if let Ok((_ret, args_meta)) = fetch_method_meta(&method) {
-                let expected_names: Vec<String> =
-                    args_meta.iter().map(|(n, _)| n.clone()).collect();
-                let provided_names: Vec<String> = map.keys().cloned().collect();
-                let missing: Vec<String> = expected_names
-                    .iter()
-                    .filter(|n| !map.contains_key(*n))
-                    .cloned()
-                    .collect();
-                let unknown: Vec<String> = provided_names
-                    .iter()
-                    .filter(|n| !expected_names.contains(*n))
-                    .cloned()
-                    .collect();
-                if !missing.is_empty() || !unknown.is_empty() {
-                    if !missing.is_empty() {
-                        for m in &missing {
-                            eprintln!(
-                                ">>>> Missing field '{}' in provided JSON object for method {}",
-                                m, method
-                            );
-                        }
-                    }
-                    if !unknown.is_empty() {
-                        eprintln!("Unknown fields present: {}", unknown.join(", "));
-                        for u in &unknown {
-                            if let Some(sugg) = best_suggestion(u, &expected_names) {
-                                eprintln!(
-                                    "     '{}' is not expected. Did you mean '{}' ?",
-                                    u, sugg
-                                );
-                            }
-                        }
-                    }
-                    print_method_help_from_core(&method);
-                    return ERROR_CODE_PARAM;
-                }
+            Ok(_) => {
+                eprintln!(">>>> Error parsing JSON arguments: expected a JSON array or object");
+                print_method_help_from_core(&method);
+                return ERROR_CODE_PARAM;
             }
-            match serde_json::to_string(&serde_json::Value::Object(map)) {
-                Ok(s) => Some(s),
-                Err(e) => {
-                    eprintln!(">>>> Error serializing object arguments: {:?}", e);
-                    return ERROR_CODE_PARAM;
-                }
+            Err(e) => {
+                eprintln!(">>>> Error parsing JSON arguments: {:?}", e);
+                print_method_help_from_core(&method);
+                return ERROR_CODE_PARAM;
             }
-        }
-        Ok(_) => {
-            eprintln!(">>>> Error parsing JSON arguments: expected a JSON array or object");
-            print_method_help_from_core(&method);
-            return ERROR_CODE_PARAM;
-        }
-        Err(e) => {
-            eprintln!(">>>> Error parsing JSON arguments: {:?}", e);
-            print_method_help_from_core(&method);
-            return ERROR_CODE_PARAM;
-        }
-    };
+        };
     let method_name_for_help = method.clone();
     match rpc_call_remote(
         &method,
@@ -723,8 +725,7 @@ fn interactive_mode(verbose: bool) {
                                     continue;
                                 }
                                 let mut map = serde_json::Map::with_capacity(args_meta.len());
-                                for ((name, _ty), value) in
-                                    args_meta.iter().zip(values.into_iter())
+                                for ((name, _ty), value) in args_meta.iter().zip(values.into_iter())
                                 {
                                     map.insert(name.clone(), value);
                                 }
