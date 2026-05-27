@@ -409,67 +409,114 @@ fn best_suggestion(input: &str, candidates: &[String]) -> Option<String> {
 fn handle_rpc(method: String, json_args_array: String, pretty: bool, verbose: bool) -> i32 {
     initialize_core(verbose);
 
-    // Convert the provided JSON into Vec<String> arguments, supporting both array and object forms
-    let args: Vec<String> = match serde_json::from_str::<serde_json::Value>(&json_args_array) {
-        Ok(serde_json::Value::Array(values)) => values
-            .into_iter()
-            .map(|v| serde_json::to_string(&v).unwrap_or_else(|_| "null".to_string()))
-            .collect(),
+    // Parse the user-supplied JSON args into the single JSON-object string
+    // the daemon expects on the wire. Supports three input shapes:
+    //
+    //   * `[]` or omitted        -> zero-argument call (no object sent)
+    //   * `{"k": v, ...}`        -> passed through verbatim
+    //   * `[v1, v2, ...]`        -> positional; mapped to the named-arg
+    //                               object via a `get_api_info` lookup against
+    //                               the daemon (the daemon is the source of
+    //                               truth for arg names).
+    //
+    // The wire dispatch goes through `rpc_call_remote`, which forwards
+    // `(method, args)` directly to the daemon's gRPC `execute` endpoint
+    // without consulting the CLI's local RPC registry. This means
+    // `edamame_cli` does NOT have to be rebuilt every time a new RPC
+    // method is added to `edamame_core` -- the daemon dispatches by name,
+    // not by local stub.
+    let args_object_json: Option<String> = match serde_json::from_str::<serde_json::Value>(
+        &json_args_array,
+    ) {
+        Ok(serde_json::Value::Array(values)) => {
+            if values.is_empty() {
+                None
+            } else {
+                match fetch_method_meta(&method) {
+                    Ok((_ret, args_meta)) => {
+                        if values.len() != args_meta.len() {
+                            eprintln!(
+                                ">>>> Argument count mismatch for {}: provided {}, expected {}",
+                                method,
+                                values.len(),
+                                args_meta.len()
+                            );
+                            print_method_help_from_core(&method);
+                            return ERROR_CODE_PARAM;
+                        }
+                        let mut map = serde_json::Map::with_capacity(args_meta.len());
+                        for ((name, _ty), value) in args_meta.iter().zip(values.into_iter()) {
+                            map.insert(name.clone(), value);
+                        }
+                        match serde_json::to_string(&serde_json::Value::Object(map)) {
+                            Ok(s) => Some(s),
+                            Err(e) => {
+                                eprintln!(">>>> Error serializing positional arguments: {:?}", e);
+                                return ERROR_CODE_PARAM;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        eprintln!(
+                            ">>>> Cannot map positional arguments without API metadata. \
+                             If the daemon supports this method but did not return metadata, \
+                             try the object form: edamame_cli rpc {} '{{\"arg1\": value, ...}}'",
+                            method
+                        );
+                        return ERROR_CODE_PARAM;
+                    }
+                }
+            }
+        }
         Ok(serde_json::Value::Object(map)) => {
-            // Object form: order fields according to API metadata
-            match fetch_method_meta(&method) {
-                Ok((_ret, args_meta)) => {
-                    let expected_names: Vec<String> =
-                        args_meta.iter().map(|(n, _)| n.clone()).collect();
-                    let provided_names: Vec<String> = map.keys().cloned().collect();
-
-                    // Detect missing and unknown fields
-                    let missing: Vec<String> = expected_names
-                        .iter()
-                        .filter(|n| !map.contains_key(*n))
-                        .cloned()
-                        .collect();
-                    let unknown: Vec<String> = provided_names
-                        .iter()
-                        .filter(|n| !expected_names.contains(*n))
-                        .cloned()
-                        .collect();
-
-                    if !missing.is_empty() || !unknown.is_empty() {
-                        if !missing.is_empty() {
-                            for m in &missing {
+            // Object form: pass through verbatim. We still consult the daemon
+            // for a friendlier missing/unknown-fields diagnostic when the
+            // daemon knows the method; if it doesn't (or metadata lookup
+            // fails for any other reason), we forward the object as-is and
+            // let the daemon return the authoritative error.
+            if let Ok((_ret, args_meta)) = fetch_method_meta(&method) {
+                let expected_names: Vec<String> =
+                    args_meta.iter().map(|(n, _)| n.clone()).collect();
+                let provided_names: Vec<String> = map.keys().cloned().collect();
+                let missing: Vec<String> = expected_names
+                    .iter()
+                    .filter(|n| !map.contains_key(*n))
+                    .cloned()
+                    .collect();
+                let unknown: Vec<String> = provided_names
+                    .iter()
+                    .filter(|n| !expected_names.contains(*n))
+                    .cloned()
+                    .collect();
+                if !missing.is_empty() || !unknown.is_empty() {
+                    if !missing.is_empty() {
+                        for m in &missing {
+                            eprintln!(
+                                ">>>> Missing field '{}' in provided JSON object for method {}",
+                                m, method
+                            );
+                        }
+                    }
+                    if !unknown.is_empty() {
+                        eprintln!("Unknown fields present: {}", unknown.join(", "));
+                        for u in &unknown {
+                            if let Some(sugg) = best_suggestion(u, &expected_names) {
                                 eprintln!(
-                                    ">>>> Missing field '{}' in provided JSON object for method {}",
-                                    m, method
+                                    "     '{}' is not expected. Did you mean '{}' ?",
+                                    u, sugg
                                 );
                             }
                         }
-                        if !unknown.is_empty() {
-                            eprintln!("Unknown fields present: {}", unknown.join(", "));
-                            for u in &unknown {
-                                if let Some(sugg) = best_suggestion(u, &expected_names) {
-                                    eprintln!(
-                                        "     '{}' is not expected. Did you mean '{}' ?",
-                                        u, sugg
-                                    );
-                                }
-                            }
-                        }
-                        print_method_help_from_core(&method);
-                        return ERROR_CODE_PARAM;
                     }
-
-                    // Build ordered args
-                    let mut ordered: Vec<String> = Vec::with_capacity(args_meta.len());
-                    for (name, _ty) in args_meta {
-                        let v = map.get(&name).unwrap();
-                        ordered
-                            .push(serde_json::to_string(v).unwrap_or_else(|_| "null".to_string()));
-                    }
-                    ordered
+                    print_method_help_from_core(&method);
+                    return ERROR_CODE_PARAM;
                 }
+            }
+            match serde_json::to_string(&serde_json::Value::Object(map)) {
+                Ok(s) => Some(s),
                 Err(e) => {
-                    eprintln!("{}", e);
+                    eprintln!(">>>> Error serializing object arguments: {:?}", e);
                     return ERROR_CODE_PARAM;
                 }
             }
@@ -486,9 +533,9 @@ fn handle_rpc(method: String, json_args_array: String, pretty: bool, verbose: bo
         }
     };
     let method_name_for_help = method.clone();
-    match rpc_call(
-        method,
-        args,
+    match rpc_call_remote(
+        &method,
+        args_object_json.as_deref(),
         &EDAMAME_CA_PEM,
         &EDAMAME_CLIENT_PEM,
         &EDAMAME_CLIENT_KEY,
@@ -624,6 +671,9 @@ fn interactive_mode(verbose: bool) {
     initialize_core(verbose);
 
     println!("Entering interactive mode. Type 'exit' to leave.");
+    println!("Usage: <method> [JSON args object or array]");
+    println!("  e.g.  get_score");
+    println!("        get_score {{\"complete_only\": false}}");
     let stdin = io::stdin();
     let mut reader = stdin.lock();
     let mut line = String::new();
@@ -638,44 +688,87 @@ fn interactive_mode(verbose: bool) {
         if trimmed == "exit" {
             break;
         }
-
-        let parts: Vec<&str> = trimmed.split_whitespace().collect();
-        if parts.is_empty() {
+        if trimmed.is_empty() {
             continue;
         }
 
-        let command = parts[0].to_string();
-        let args: Vec<String> = parts[1..].iter().map(|&s| s.to_string()).collect();
+        // Split off the method name; treat the rest of the line as the JSON
+        // argument blob (object or array). Anything that is not a JSON object
+        // or array is rejected; positional whitespace-split tokens are not
+        // supported here because the wire format the daemon dispatcher
+        // expects is a single named-arg JSON object.
+        let (command, args_blob) = match trimmed.split_once(char::is_whitespace) {
+            Some((cmd, rest)) => (cmd.to_string(), rest.trim().to_string()),
+            None => (trimmed.to_string(), String::new()),
+        };
 
-        // Check if the command is valid
-        match rpc_get_api_methods(
-            &EDAMAME_CA_PEM,
-            &EDAMAME_CLIENT_PEM,
-            &EDAMAME_CLIENT_KEY,
-            &EDAMAME_TARGET,
-        ) {
-            Ok(methods) => {
-                if !methods.contains(&command) {
-                    eprintln!(">>>> Invalid command");
+        let args_object_json: Option<String> = if args_blob.is_empty() {
+            None
+        } else {
+            match serde_json::from_str::<serde_json::Value>(&args_blob) {
+                Ok(serde_json::Value::Object(_)) => Some(args_blob.clone()),
+                Ok(serde_json::Value::Array(values)) => {
+                    if values.is_empty() {
+                        None
+                    } else {
+                        match fetch_method_meta(&command) {
+                            Ok((_ret, args_meta)) => {
+                                if values.len() != args_meta.len() {
+                                    eprintln!(
+                                        ">>>> Argument count mismatch for {}: provided {}, expected {}",
+                                        command,
+                                        values.len(),
+                                        args_meta.len()
+                                    );
+                                    continue;
+                                }
+                                let mut map = serde_json::Map::with_capacity(args_meta.len());
+                                for ((name, _ty), value) in
+                                    args_meta.iter().zip(values.into_iter())
+                                {
+                                    map.insert(name.clone(), value);
+                                }
+                                match serde_json::to_string(&serde_json::Value::Object(map)) {
+                                    Ok(s) => Some(s),
+                                    Err(e) => {
+                                        eprintln!(
+                                            ">>>> Error serializing positional arguments: {:?}",
+                                            e
+                                        );
+                                        continue;
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("{}", e);
+                                continue;
+                            }
+                        }
+                    }
+                }
+                Ok(_) => {
+                    eprintln!(
+                        ">>>> Expected a JSON object {{...}} or array [...] after the method name"
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    eprintln!(">>>> Error parsing JSON arguments: {:?}", e);
                     continue;
                 }
             }
-            Err(e) => {
-                eprintln!(">>>> Error getting API methods: {:?}", e);
-                continue;
-            }
-        }
+        };
 
-        match rpc_call(
-            command,
-            args,
+        match rpc_call_remote(
+            &command,
+            args_object_json.as_deref(),
             &EDAMAME_CA_PEM,
             &EDAMAME_CLIENT_PEM,
             &EDAMAME_CLIENT_KEY,
             &EDAMAME_TARGET,
         ) {
             Ok(result) => {
-                let _ = write_stdout(&format!("Result: {:?}", result));
+                let _ = write_stdout(&format!("Result: {}", result));
             }
             Err(e) => eprintln!(">>>> Error calling RPC method: {:?}", e),
         }

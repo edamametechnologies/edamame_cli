@@ -43,17 +43,65 @@ src/main.rs (~700 lines)
 ┌─────────────────────────────────────────────────────────────────┐
 │                      RPC Dispatcher                             │
 │  • Parse JSON arguments (array or object form)                  │
-│  • Lookup method in registry                                    │
-│  • Invoke edamame_core function                                 │
+│  • For positional args: query daemon for arg names              │
+│  • Build named-arg JSON object                                  │
+│  • Forward (method, args) to daemon over mTLS gRPC              │
 │  • Format and return result                                     │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      edamame_core                               │
-│                   (via RPC registry)                            │
+│              edamame_core daemon (gRPC execute)                 │
+│        (daemon's HANDLER_REGISTRY does the dispatch)            │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+### Registry-independent dispatch (the daemon catalog is the source of truth)
+
+The CLI does **not** require a client-side stub for the methods it
+forwards. RPC calls go through
+`edamame_core::api::api_rpc::rpc_call_remote`, which is a thin
+pass-through to the gRPC `execute` endpoint:
+
+```text
+edamame_cli  ──(method, json_args_object)──►  daemon
+                                                │
+                                                ▼
+                                        HANDLER_REGISTRY (daemon-side)
+                                                │
+                                                ▼
+                                          <method>_async(...)
+```
+
+The wire protocol is just `(command: String, args: Vec<String>)`.
+There is no client-side method-name lookup, no client-side type
+re-validation of the arg object, and no client-side return-type
+deserialization. The daemon is the single source of truth for the
+RPC catalog: it owns the dispatch table and emits "Command not
+found" itself when the method is unknown.
+
+Operational consequence:
+
+* **Adding a new RPC method in `edamame_core` does NOT require
+  rebuilding/redeploying `edamame_cli`** -- as long as the daemon
+  on the host has the method registered, any CLI version that ships
+  this dispatch model can call it. This was specifically motivated
+  by the FP-collection loop (`export_attack_pattern_finding_details`
+  shipped in core before brew/choco/apt had pushed a refreshed CLI
+  to the dogfood hosts).
+* The `list-methods`, `list-method-infos`, and `get-method-info`
+  commands ask the daemon for its catalog via the stable
+  `get_api_methods` / `get_api_info` RPC, so even discovery is
+  daemon-driven and doesn't rely on the CLI's compile-time view of
+  the API.
+* The CLI binary still needs to be rebuilt when the **wire
+  protocol** changes (proto schema, mTLS handshake, command/args
+  framing) or when the CLI's own subcommand surface needs to
+  evolve. Those are infrequent.
+
+The legacy registry-based `rpc_call` function in `edamame_core` is
+preserved for callers that have the local stub and want the
+client-side argument typing it provides; the CLI no longer uses it.
 
 ## Commands
 
