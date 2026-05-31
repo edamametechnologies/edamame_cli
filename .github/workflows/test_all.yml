@@ -35,10 +35,8 @@ jobs:
           # the same 403 from the system git binary, so the issue is
           # not libgit2-specific -- it is the egress IP being blocked
           # by the org-side allow list for the entire ubuntu pool.
-          # See workspace.mdc "Known transient CI failures #2 -- cargo
-          # git fetch 403 from github-hosted ubuntu runners on private
-          # workspace crates" for the full diagnosis. Self-hosted
-          # vm-runner-linux is on a permanently-allowlisted Azure VM.
+          # Self-hosted vm-runner-linux is on a permanently-allowlisted
+          # Azure VM.
           - os: ubuntu
             runs-on: vm-runner-linux
           - os: macos
@@ -77,11 +75,10 @@ jobs:
       # `mining-` session UIDs from `edamame_core/src/demo_sessions.rs`).
       # Because the daemon's carry-forward logic in
       # `run_vulnerability_detector_tick()` merges active non-dismissed
-      # history entries into every tick's report (per the Vulnerability
-      # Finding Persistence invariant), those demo findings re-surface on
-      # the next job and trip its `EDAMAME Posture vulnerability gate`,
-      # even though demo mode itself is in-memory only and resets on
-      # daemon restart.
+      # history entries into every tick's report, those demo findings
+      # re-surface on the next job and trip its
+      # `EDAMAME Posture vulnerability gate`, even though demo mode
+      # itself is in-memory only and resets on daemon restart.
       #
       # Truncating the file BEFORE Setup EDAMAME Posture starts the daemon
       # is the deterministic fix: the daemon reads the (now empty)

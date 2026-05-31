@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 use std::io::{self, BufRead, ErrorKind, Write};
 use std::process::exit;
 
-const ERROR_CODE_SERVER_ERROR: i32 = 12;
+const ERROR_CODE_SERVER_ERROR: i32 = 2;
 const ERROR_CODE_PARAM: i32 = 3;
 
 lazy_static! {
