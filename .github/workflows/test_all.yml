@@ -122,12 +122,15 @@ jobs:
           agentic_mode: analyze
           agentic_provider: edamame
           agentic_interval: 600
-        env:
-          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
-          # We are using the token of the the private repo to checkout the public repo and properly wait for access to the private repo
+          # token + wait_for_api/wait_for_https are action INPUTS, not env vars.
+          # wait_for_api blocks until connected mode lifts the org IP allow-list
+          # for this runner's egress IP, so the later cargo git fetch of private
+          # crates does not 403 on github-hosted lanes.
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_for_https: true
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
           
       - name: Configure Git Authentication to import private crates
         run: |
