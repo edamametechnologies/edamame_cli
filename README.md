@@ -54,11 +54,9 @@ sudo mv edamame_cli-* /usr/local/bin/edamame_cli
 
 #### Homebrew Installation (Recommended)
 ```bash
-# Add the EDAMAME tap
-brew tap edamametechnologies/tap
-
 # Install EDAMAME CLI
-brew install edamame-cli
+# Fully-qualified name self-trusts the EDAMAME tap (Homebrew 6.0.0 Tap Trust)
+brew install edamametechnologies/tap/edamame-cli
 ```
 
 #### Manual Binary Installation

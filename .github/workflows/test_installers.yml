@@ -258,8 +258,8 @@ jobs:
         run: |
           set -euo pipefail
           brew update
-          brew tap edamametechnologies/tap
-          brew install edamame-cli
+          # Fully-qualified name self-trusts the tap (Homebrew 6.0.0 Tap Trust)
+          brew install edamametechnologies/tap/edamame-cli
 
       - name: Verify binary is available
         id: verify

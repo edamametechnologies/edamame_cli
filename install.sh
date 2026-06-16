@@ -243,13 +243,12 @@ fi
 # macOS: try Homebrew first unless forced
 if [ "$PLATFORM" = "macos" ] && [ "$CONFIG_FORCE_BINARY" != "true" ]; then
     if command -v brew >/dev/null 2>&1; then
-        if ! brew tap | grep -q "edamametechnologies/tap"; then
-            brew tap edamametechnologies/tap >/dev/null 2>&1 || true
-        fi
+        # Homebrew 6.0.0 Tap Trust: fully-qualified name self-trusts (and auto-taps)
+        # the EDAMAME tap; a short name from an untrusted tap is refused.
         if brew list edamame-cli >/dev/null 2>&1; then
-            brew upgrade edamame-cli >/dev/null 2>&1 || true
+            brew upgrade edamametechnologies/tap/edamame-cli >/dev/null 2>&1 || true
         else
-            brew install edamame-cli >/dev/null 2>&1 || true
+            brew install edamametechnologies/tap/edamame-cli >/dev/null 2>&1 || true
         fi
         if command -v edamame_cli >/dev/null 2>&1; then
             pkg_installed="true"
