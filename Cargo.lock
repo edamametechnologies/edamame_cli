@@ -186,9 +186,9 @@ checksum = "d67af77d68a931ecd5cbd8a3b5987d63a1d1d1278f7f6a60ae33db485cdebb69"
 
 [[package]]
 name = "arc-swap"
-version = "1.9.1"
+version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a3a1fd6f75306b68087b831f025c712524bcb19aad54e557b1129cfa0a2b207"
+checksum = "c049c0be4daef0b145cb3555416b3b8ef5b7888a38aea1a3a155801fe7b0810b"
 dependencies = [
  "rustversion",
 ]
@@ -1718,7 +1718,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_cli"
-version = "1.4.6"
+version = "1.4.7"
 dependencies = [
  "cargo-deb",
  "clap",
@@ -1733,8 +1733,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "1.4.6"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e0e4f6a0ffc790bf01fc72bb984e8739478813a9"
+version = "1.4.7"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#d65da151133ac0b2f213e27ce92cc46a05547692"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1822,8 +1822,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "1.4.6"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#5cef0810a865e463241f3761d56862b5e40b9051"
+version = "1.4.7"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#0d7b252e37bd4556da03f24cfeccf4a11d80c0a4"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2232,8 +2232,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "1.4.6"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#cc5aab135f08b177e59f299d1a826b8919e3db55"
+version = "1.4.7"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#9d7922a94f9936756a5ef738b7c6b17e63cd3b7a"
 dependencies = [
  "anyhow",
  "arc-swap",
