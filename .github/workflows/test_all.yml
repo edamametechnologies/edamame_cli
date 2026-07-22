@@ -422,9 +422,13 @@ jobs:
         if: always()
         shell: bash
         run: |
-          # Stop leftover lima/tmp posture build products so the detector
-          # cannot re-emit FP-CI-6 shapes between clear and the gate.
-          pkill -9 -f '/tmp/edamame_posture/' 2>/dev/null || true
+          # Stop leftover lima/tmp posture *binaries* only. Do NOT use
+          # `pkill -f /tmp/edamame_posture` -- that matches rustc
+          # `--out-dir /tmp/edamame_posture/...` and SIGKILLs live cargo builds.
+          pkill -9 -x edamame_posture 2>/dev/null || true
+          for pid in $(pgrep -f '[/]tmp/edamame_posture/target/.*/edamame_posture( |$)' 2>/dev/null || true); do
+            kill -9 "$pid" 2>/dev/null || true
+          done
           if ! command -v edamame_cli >/dev/null 2>&1; then
             echo "Installing edamame_cli on demand..."
             curl --proto '=https' --tlsv1.2 -sSf \
