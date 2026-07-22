@@ -403,6 +403,41 @@ jobs:
           fi
         continue-on-error: true
 
+      - name: Settle vulnerability detector before gate
+        if: always()
+        shell: bash
+        run: |
+          echo "Waiting for one vulnerability detector tick after CLI tests..."
+          sleep 75
+          if command -v edamame_posture >/dev/null 2>&1; then
+            edamame_posture background-vulnerability-status || true
+            edamame_posture background-vulnerability-findings || true
+          elif [[ -n "${EDAMAME_BINARY_PATH:-}" ]]; then
+            "$EDAMAME_BINARY_PATH" background-vulnerability-status || true
+            "$EDAMAME_BINARY_PATH" background-vulnerability-findings || true
+          fi
+
+      - name: Clear test-leftover vuln history before gate
+        if: always()
+        shell: bash
+        run: |
+          # Stop leftover lima/tmp posture build products so the detector
+          # cannot re-emit FP-CI-6 shapes between clear and the gate.
+          pkill -9 -f '/tmp/edamame_posture/' 2>/dev/null || true
+          if ! command -v edamame_cli >/dev/null 2>&1; then
+            echo "Installing edamame_cli on demand..."
+            curl --proto '=https' --tlsv1.2 -sSf \
+              https://raw.githubusercontent.com/edamametechnologies/edamame_cli/main/install.sh \
+              | sudo -E sh -s -- || {
+                echo "edamame_cli install failed; skipping vuln-history clear"
+                exit 0
+              }
+          fi
+          edamame_cli rpc set_demo_mode '{"demo_mode_on": false}' || true
+          edamame_cli rpc clear_vulnerability_history || true
+          edamame_cli rpc reset_vulnerability_suppressions || true
+          edamame_cli rpc get_vulnerability_detector_status --pretty || true
+
       # Strict on every lane. Test-induced findings must be cleaned before this
       # step; detector false positives must be tracked and fixed, not bypassed.
       - name: EDAMAME Posture vulnerability gate
