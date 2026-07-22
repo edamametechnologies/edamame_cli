@@ -10,6 +10,7 @@ on:
       - 'src/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - '.github/workflows/test_all.yml'
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
