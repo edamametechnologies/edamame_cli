@@ -17,46 +17,46 @@ _edamame_cli() {
                 cmd="edamame_cli"
                 ;;
             edamame_cli,completion)
-                cmd="edamame_cli__completion"
+                cmd="edamame_cli__subcmd__completion"
                 ;;
             edamame_cli,get-method-info)
-                cmd="edamame_cli__get__method__info"
+                cmd="edamame_cli__subcmd__get__subcmd__method__subcmd__info"
                 ;;
             edamame_cli,help)
-                cmd="edamame_cli__help"
+                cmd="edamame_cli__subcmd__help"
                 ;;
             edamame_cli,interactive)
-                cmd="edamame_cli__interactive"
+                cmd="edamame_cli__subcmd__interactive"
                 ;;
             edamame_cli,list-method-infos)
-                cmd="edamame_cli__list__method__infos"
+                cmd="edamame_cli__subcmd__list__subcmd__method__subcmd__infos"
                 ;;
             edamame_cli,list-methods)
-                cmd="edamame_cli__list__methods"
+                cmd="edamame_cli__subcmd__list__subcmd__methods"
                 ;;
             edamame_cli,rpc)
-                cmd="edamame_cli__rpc"
+                cmd="edamame_cli__subcmd__rpc"
                 ;;
-            edamame_cli__help,completion)
-                cmd="edamame_cli__help__completion"
+            edamame_cli__subcmd__help,completion)
+                cmd="edamame_cli__subcmd__help__subcmd__completion"
                 ;;
-            edamame_cli__help,get-method-info)
-                cmd="edamame_cli__help__get__method__info"
+            edamame_cli__subcmd__help,get-method-info)
+                cmd="edamame_cli__subcmd__help__subcmd__get__subcmd__method__subcmd__info"
                 ;;
-            edamame_cli__help,help)
-                cmd="edamame_cli__help__help"
+            edamame_cli__subcmd__help,help)
+                cmd="edamame_cli__subcmd__help__subcmd__help"
                 ;;
-            edamame_cli__help,interactive)
-                cmd="edamame_cli__help__interactive"
+            edamame_cli__subcmd__help,interactive)
+                cmd="edamame_cli__subcmd__help__subcmd__interactive"
                 ;;
-            edamame_cli__help,list-method-infos)
-                cmd="edamame_cli__help__list__method__infos"
+            edamame_cli__subcmd__help,list-method-infos)
+                cmd="edamame_cli__subcmd__help__subcmd__list__subcmd__method__subcmd__infos"
                 ;;
-            edamame_cli__help,list-methods)
-                cmd="edamame_cli__help__list__methods"
+            edamame_cli__subcmd__help,list-methods)
+                cmd="edamame_cli__subcmd__help__subcmd__list__subcmd__methods"
                 ;;
-            edamame_cli__help,rpc)
-                cmd="edamame_cli__help__rpc"
+            edamame_cli__subcmd__help,rpc)
+                cmd="edamame_cli__subcmd__help__subcmd__rpc"
                 ;;
             *)
                 ;;
@@ -78,7 +78,7 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__completion)
+        edamame_cli__subcmd__completion)
             opts="-v -h --verbose --help bash elvish fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -92,8 +92,8 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__get__method__info)
-            opts="-v -h --verbose --help <METHOD>"
+        edamame_cli__subcmd__get__subcmd__method__subcmd__info)
+            opts="-v -h --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -106,7 +106,7 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__help)
+        edamame_cli__subcmd__help)
             opts="completion list-methods get-method-info list-method-infos interactive rpc help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -120,7 +120,7 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__help__completion)
+        edamame_cli__subcmd__help__subcmd__completion)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -134,7 +134,7 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__help__get__method__info)
+        edamame_cli__subcmd__help__subcmd__get__subcmd__method__subcmd__info)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -148,7 +148,7 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__help__help)
+        edamame_cli__subcmd__help__subcmd__help)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -162,7 +162,7 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__help__interactive)
+        edamame_cli__subcmd__help__subcmd__interactive)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -176,7 +176,7 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__help__list__method__infos)
+        edamame_cli__subcmd__help__subcmd__list__subcmd__method__subcmd__infos)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -190,7 +190,7 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__help__list__methods)
+        edamame_cli__subcmd__help__subcmd__list__subcmd__methods)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -204,7 +204,7 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__help__rpc)
+        edamame_cli__subcmd__help__subcmd__rpc)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -218,7 +218,7 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__interactive)
+        edamame_cli__subcmd__interactive)
             opts="-v -h --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -232,7 +232,7 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__list__method__infos)
+        edamame_cli__subcmd__list__subcmd__method__subcmd__infos)
             opts="-v -h --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -246,7 +246,7 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__list__methods)
+        edamame_cli__subcmd__list__subcmd__methods)
             opts="-v -h --pretty --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -260,8 +260,8 @@ _edamame_cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        edamame_cli__rpc)
-            opts="-v -h --pretty --verbose --help <METHOD> [JSON_ARGS_ARRAY]"
+        edamame_cli__subcmd__rpc)
+            opts="-v -h --pretty --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -86,7 +86,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (help)
 _arguments "${_arguments_options[@]}" : \
-":: :_edamame_cli__help_commands" \
+":: :_edamame_cli__subcmd__help_commands" \
 "*::: :->help" \
 && ret=0
 
@@ -146,18 +146,18 @@ _edamame_cli_commands() {
     )
     _describe -t commands 'edamame_cli commands' commands "$@"
 }
-(( $+functions[_edamame_cli__completion_commands] )) ||
-_edamame_cli__completion_commands() {
+(( $+functions[_edamame_cli__subcmd__completion_commands] )) ||
+_edamame_cli__subcmd__completion_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli completion commands' commands "$@"
 }
-(( $+functions[_edamame_cli__get-method-info_commands] )) ||
-_edamame_cli__get-method-info_commands() {
+(( $+functions[_edamame_cli__subcmd__get-method-info_commands] )) ||
+_edamame_cli__subcmd__get-method-info_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli get-method-info commands' commands "$@"
 }
-(( $+functions[_edamame_cli__help_commands] )) ||
-_edamame_cli__help_commands() {
+(( $+functions[_edamame_cli__subcmd__help_commands] )) ||
+_edamame_cli__subcmd__help_commands() {
     local commands; commands=(
 'completion:Generate shell completion scripts' \
 'list-methods:List all available RPC methods' \
@@ -169,58 +169,58 @@ _edamame_cli__help_commands() {
     )
     _describe -t commands 'edamame_cli help commands' commands "$@"
 }
-(( $+functions[_edamame_cli__help__completion_commands] )) ||
-_edamame_cli__help__completion_commands() {
+(( $+functions[_edamame_cli__subcmd__help__subcmd__completion_commands] )) ||
+_edamame_cli__subcmd__help__subcmd__completion_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli help completion commands' commands "$@"
 }
-(( $+functions[_edamame_cli__help__get-method-info_commands] )) ||
-_edamame_cli__help__get-method-info_commands() {
+(( $+functions[_edamame_cli__subcmd__help__subcmd__get-method-info_commands] )) ||
+_edamame_cli__subcmd__help__subcmd__get-method-info_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli help get-method-info commands' commands "$@"
 }
-(( $+functions[_edamame_cli__help__help_commands] )) ||
-_edamame_cli__help__help_commands() {
+(( $+functions[_edamame_cli__subcmd__help__subcmd__help_commands] )) ||
+_edamame_cli__subcmd__help__subcmd__help_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli help help commands' commands "$@"
 }
-(( $+functions[_edamame_cli__help__interactive_commands] )) ||
-_edamame_cli__help__interactive_commands() {
+(( $+functions[_edamame_cli__subcmd__help__subcmd__interactive_commands] )) ||
+_edamame_cli__subcmd__help__subcmd__interactive_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli help interactive commands' commands "$@"
 }
-(( $+functions[_edamame_cli__help__list-method-infos_commands] )) ||
-_edamame_cli__help__list-method-infos_commands() {
+(( $+functions[_edamame_cli__subcmd__help__subcmd__list-method-infos_commands] )) ||
+_edamame_cli__subcmd__help__subcmd__list-method-infos_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli help list-method-infos commands' commands "$@"
 }
-(( $+functions[_edamame_cli__help__list-methods_commands] )) ||
-_edamame_cli__help__list-methods_commands() {
+(( $+functions[_edamame_cli__subcmd__help__subcmd__list-methods_commands] )) ||
+_edamame_cli__subcmd__help__subcmd__list-methods_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli help list-methods commands' commands "$@"
 }
-(( $+functions[_edamame_cli__help__rpc_commands] )) ||
-_edamame_cli__help__rpc_commands() {
+(( $+functions[_edamame_cli__subcmd__help__subcmd__rpc_commands] )) ||
+_edamame_cli__subcmd__help__subcmd__rpc_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli help rpc commands' commands "$@"
 }
-(( $+functions[_edamame_cli__interactive_commands] )) ||
-_edamame_cli__interactive_commands() {
+(( $+functions[_edamame_cli__subcmd__interactive_commands] )) ||
+_edamame_cli__subcmd__interactive_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli interactive commands' commands "$@"
 }
-(( $+functions[_edamame_cli__list-method-infos_commands] )) ||
-_edamame_cli__list-method-infos_commands() {
+(( $+functions[_edamame_cli__subcmd__list-method-infos_commands] )) ||
+_edamame_cli__subcmd__list-method-infos_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli list-method-infos commands' commands "$@"
 }
-(( $+functions[_edamame_cli__list-methods_commands] )) ||
-_edamame_cli__list-methods_commands() {
+(( $+functions[_edamame_cli__subcmd__list-methods_commands] )) ||
+_edamame_cli__subcmd__list-methods_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli list-methods commands' commands "$@"
 }
-(( $+functions[_edamame_cli__rpc_commands] )) ||
-_edamame_cli__rpc_commands() {
+(( $+functions[_edamame_cli__subcmd__rpc_commands] )) ||
+_edamame_cli__subcmd__rpc_commands() {
     local commands; commands=()
     _describe -t commands 'edamame_cli rpc commands' commands "$@"
 }
