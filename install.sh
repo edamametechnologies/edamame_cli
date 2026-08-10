@@ -49,22 +49,32 @@ download_file() {
     fi
 }
 
+# Resolve the newest published release, preferring an anonymous request.
+#
+# This repository is public, so the release lookup never needs a credential.
+# Presenting one is actively harmful on a CI runner: an authenticated call is
+# evaluated against the organization's IP allow list, which returns 403 for any
+# runner IP that has not been lifted yet. The caller sees no error -- the empty
+# body just falls through to FALLBACK_VERSION, silently installing a years-old
+# CLI whose RPC stub registry predates most methods. That is how a runner ended
+# up on 1.2.0 and failed with "Method not found" on an RPC the daemon supports.
+#
+# So: try anonymous first, and only fall back to the token if that fails (a
+# rate-limited shared runner IP being the case that needs it).
 fetch_latest_version() {
     local owner_repo
     owner_repo=$(echo "$REPO_BASE_URL" | sed 's|https://github.com/||')
     local api_url="https://api.github.com/repos/${owner_repo}/releases/latest"
     local json=""
     if command -v curl >/dev/null 2>&1; then
-        if [ -n "$GITHUB_TOKEN" ]; then
+        json=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api_url" 2>/dev/null) || json=""
+        if [ -z "$json" ] && [ -n "$GITHUB_TOKEN" ]; then
             json=$(curl --connect-timeout 10 --max-time 30 -fsSL -H "Authorization: token $GITHUB_TOKEN" "$api_url" 2>/dev/null) || json=""
-        else
-            json=$(curl --connect-timeout 10 --max-time 30 -fsSL "$api_url" 2>/dev/null) || json=""
         fi
     elif command -v wget >/dev/null 2>&1; then
-        if [ -n "$GITHUB_TOKEN" ]; then
+        json=$(wget --timeout=30 -q -O - "$api_url" 2>/dev/null) || json=""
+        if [ -z "$json" ] && [ -n "$GITHUB_TOKEN" ]; then
             json=$(wget --timeout=30 -q -O - --header="Authorization: token $GITHUB_TOKEN" "$api_url" 2>/dev/null) || json=""
-        else
-            json=$(wget --timeout=30 -q -O - "$api_url" 2>/dev/null) || json=""
         fi
     fi
     echo "$json" | grep -m1 '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/' | sed 's/^v//'
@@ -175,7 +185,14 @@ VERSION="$CONFIG_VERSION"
 if [ -z "$VERSION" ]; then
     VERSION=$(fetch_latest_version)
     if [ -z "$VERSION" ]; then
+        # Name the consequence, not just the cause. The fallback is old enough
+        # that its compiled-in RPC stub registry is missing methods current
+        # daemons serve, so a caller that reads past this line gets
+        # "Method not found" with nothing pointing back here.
         warn "Failed to determine latest version, using fallback $FALLBACK_VERSION"
+        warn "This is a DEGRADED install: $FALLBACK_VERSION predates many RPC methods."
+        warn "Pass --version <VERSION> to pin explicitly, or verify a specific method"
+        warn "is dispatchable with: edamame_cli get-method-info <method>"
         VERSION="$FALLBACK_VERSION"
     fi
 fi
