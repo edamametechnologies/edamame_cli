@@ -49,21 +49,40 @@ download_file() {
     fi
 }
 
-# Resolve the newest published release, preferring an anonymous request.
+# Resolve the newest published release without using a credential or the API.
 #
-# This repository is public, so the release lookup never needs a credential.
-# Presenting one is actively harmful on a CI runner: an authenticated call is
-# evaluated against the organization's IP allow list, which returns 403 for any
-# runner IP that has not been lifted yet. The caller sees no error -- the empty
-# body just falls through to FALLBACK_VERSION, silently installing a years-old
-# CLI whose RPC stub registry predates most methods. That is how a runner ended
-# up on 1.2.0 and failed with "Method not found" on an RPC the daemon supports.
+# This repository is public, so the lookup never needs a token. Presenting one
+# is actively harmful on a CI runner: an authenticated call is evaluated
+# against the organization's IP allow list, which returns 403 for any runner IP
+# that has not been lifted yet. The anonymous API call is no better on hosted
+# runners -- api.github.com allows 60 unauthenticated requests per hour per
+# source IP, and a shared macOS/Linux runner pool exhausts that on its own.
+# Either way the caller sees no error: the empty body falls through to
+# FALLBACK_VERSION and silently installs a years-old CLI whose RPC stub
+# registry predates most methods, which then surfaces far downstream as
+# "Method not found" on an RPC the daemon does support.
 #
-# So: try anonymous first, and only fall back to the token if that fails (a
-# rate-limited shared runner IP being the case that needs it).
-fetch_latest_version() {
-    local owner_repo
-    owner_repo=$(echo "$REPO_BASE_URL" | sed 's|https://github.com/||')
+# github.com/<owner>/<repo>/releases/latest answers with a 302 to the concrete
+# tag. It is unauthenticated, not rate limited, and not subject to the IP allow
+# list, so it is the primary resolver. The API calls stay as fallbacks for the
+# case where only the API host is reachable.
+fetch_latest_version_from_redirect() {
+    local owner_repo="$1"
+    local url="https://github.com/${owner_repo}/releases/latest"
+    local location=""
+    if command -v curl >/dev/null 2>&1; then
+        location=$(curl --connect-timeout 10 --max-time 30 -fsSLI -o /dev/null -w '%{url_effective}' "$url" 2>/dev/null) || location=""
+    elif command -v wget >/dev/null 2>&1; then
+        location=$(wget --timeout=30 --max-redirect=5 -S --spider "$url" 2>&1 | grep -i '^  Location:' | tail -n1 | sed 's/^ *Location: *//') || location=""
+    fi
+    case "$location" in
+        */releases/tag/*) echo "${location##*/releases/tag/}" | sed 's/^v//' ;;
+        *) echo "" ;;
+    esac
+}
+
+fetch_latest_version_from_api() {
+    local owner_repo="$1"
     local api_url="https://api.github.com/repos/${owner_repo}/releases/latest"
     local json=""
     if command -v curl >/dev/null 2>&1; then
@@ -78,6 +97,17 @@ fetch_latest_version() {
         fi
     fi
     echo "$json" | grep -m1 '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/' | sed 's/^v//'
+}
+
+fetch_latest_version() {
+    local owner_repo
+    owner_repo=$(echo "$REPO_BASE_URL" | sed 's|https://github.com/||')
+    local version
+    version=$(fetch_latest_version_from_redirect "$owner_repo")
+    if [ -z "$version" ]; then
+        version=$(fetch_latest_version_from_api "$owner_repo")
+    fi
+    echo "$version"
 }
 
 detect_glibc_version() {
