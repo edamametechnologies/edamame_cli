@@ -449,37 +449,67 @@ jobs:
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$url64 = ''.*''', "`$url64 = 'https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_cli-${VERSION}-x86_64-pc-windows-msvc.exe'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$checksum64 = ''.*''', "`$checksum64 = '${SHA_WIN}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           
-          # Pack Chocolatey package
-          Write-Host "Packing Chocolatey package..."
-          choco pack chocolatey/edamame-cli.nuspec
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "ERROR: choco pack failed with exit code $LASTEXITCODE"
-            exit $LASTEXITCODE
-          }
-          
           # Publish to Chocolatey if API key is present.
-          # `choco push` is non-idempotent: re-running this step after a
-          # successful publish (e.g. when `gh run rerun --failed` retries the
-          # whole job after a downstream step failed) returns HTTP 409
-          # Conflict. Capture the verbose output and treat the
-          # "already published" 409 as a success so workflow retries do not
-          # masquerade as real release failures.
+          #
+          # A 409 Conflict means this version is ALREADY published -- and it
+          # must NOT be treated as success. The Windows asset is re-uploaded
+          # with `gh release upload --clobber` on every run, and Rust builds
+          # are not bit-reproducible, so a re-run produces a DIFFERENT binary
+          # with a different SHA256. Swallowing the 409 leaves the published
+          # package pointing at the new asset while still declaring the old
+          # checksum. That is exactly how v1.8.0 shipped broken:
+          #
+          #   release published = 2026-08-18T08:24:44Z
+          #   asset re-uploaded = 2026-08-19T02:19:09Z  (18h later)
+          #   package checksum  = c00641ea...  (first binary)
+          #   actual asset      = 2ed26371...  (re-uploaded binary)
+          #
+          # `choco install edamame-cli` then fails the checksum gate for every
+          # user. The check_choco probe cannot prevent this alone: a freshly
+          # pushed package sits in MODERATION and 404s on
+          # community.chocolatey.org, so the probe reports "does not exist"
+          # while push still returns 409.
+          #
+          # Chocolatey versions are immutable, so on 409 the fix is to publish
+          # the NEXT revision suffix carrying the correct checksum -- never to
+          # pretend the stale one is fine.
           if ("${{ secrets.CHOCOLATEY_API_KEY }}" -ne "") {
-            Write-Host "Pushing to Chocolatey..."
-            $pushOut = choco push edamame-cli.${CHOCO_VERSION}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }} --verbose 2>&1 | Out-String
-            $pushRc = $LASTEXITCODE
-            Write-Host $pushOut
-            if ($pushRc -ne 0) {
-              if ($pushOut -match '409 \(Conflict\)' -or $pushOut -match 'already exists' -or $pushOut -match 'SkipDuplicate') {
-                Write-Host "INFO: choco push reported the package version is already published; treating as success (rerun-safe)."
-                # Explicitly reset $LASTEXITCODE so the pwsh wrapper does not
-                # propagate choco's non-zero exit code as the step's exit code.
-                $global:LASTEXITCODE = 0
-              } else {
-                Write-Host "ERROR: choco push failed with exit code $pushRc"
-                exit $pushRc
+            $published = $false
+            for ($attempt = 0; $attempt -lt 20; $attempt++) {
+              (Get-Content chocolatey/edamame-cli.nuspec) -replace '<version>.*</version>', "<version>${CHOCO_VERSION}</version>" | Set-Content chocolatey/edamame-cli.nuspec
+              (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$packageVersion = ''.*''', "`$packageVersion = '${CHOCO_VERSION}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
+
+              Write-Host "Packing Chocolatey package ${CHOCO_VERSION}..."
+              choco pack chocolatey/edamame-cli.nuspec
+              if ($LASTEXITCODE -ne 0) {
+                Write-Host "ERROR: choco pack failed with exit code $LASTEXITCODE"
+                exit $LASTEXITCODE
               }
+
+              Write-Host "Pushing to Chocolatey ${CHOCO_VERSION}..."
+              $pushOut = choco push edamame-cli.${CHOCO_VERSION}.nupkg -s https://push.chocolatey.org/ -k ${{ secrets.CHOCOLATEY_API_KEY }} --verbose 2>&1 | Out-String
+              $pushRc = $LASTEXITCODE
+              Write-Host $pushOut
+              if ($pushRc -eq 0) { $published = $true; break }
+
+              if ($pushOut -match '409 \(Conflict\)' -or $pushOut -match 'already exists' -or $pushOut -match 'SkipDuplicate') {
+                $base = "${{ steps.get_release.outputs.version }}"
+                $nextRev = 1
+                if ($CHOCO_VERSION -match "^$([regex]::Escape($base))\.(\d+)$") { $nextRev = [int]$Matches[1] + 1 }
+                $CHOCO_VERSION = "${base}.${nextRev}"
+                Write-Host "INFO: version already published; retrying as ${CHOCO_VERSION} so the live checksum matches the live asset."
+                continue
+              }
+
+              Write-Host "ERROR: choco push failed with exit code $pushRc"
+              exit $pushRc
             }
+            if (-not $published) {
+              Write-Host "ERROR: exhausted revision suffixes without publishing a package matching the current asset."
+              Write-Host "ERROR: refusing to report success while the live package is out of sync with the release asset."
+              exit 1
+            }
+            Write-Host "Published Chocolatey package ${CHOCO_VERSION} (checksum ${SHA_WIN})."
           } else {
             Write-Host "Skipping Chocolatey publish: CHOCOLATEY_API_KEY not set"
           }
