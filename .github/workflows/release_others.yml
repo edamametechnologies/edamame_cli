@@ -536,7 +536,23 @@ jobs:
           # Update Chocolatey Package with resolved version
           (Get-Content chocolatey/edamame-cli.nuspec) -replace '<version>.*</version>', "<version>${CHOCO_VERSION}</version>" | Set-Content chocolatey/edamame-cli.nuspec
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$packageVersion = ''.*''', "`$packageVersion = '${CHOCO_VERSION}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
-          (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$url64 = ''.*''', "`$url64 = 'https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_cli-${VERSION}-x86_64-pc-windows-msvc.exe'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
+          # Pin the URL to the BASE version, and match EITHER quote style.
+          #
+          # The template ships `$url64 = "...v$packageVersion/...-$packageVersion-..."`
+          # -- DOUBLE quoted, interpolating $packageVersion. This replace used to
+          # anchor on ''.*'' (single quotes only), so it never matched and the
+          # rewrite silently no-opped, leaving the interpolating form in place.
+          #
+          # That is invisible while the Chocolatey version equals the release
+          # version, and fatal the moment the revision-suffix path bumps it: the
+          # package then resolves to v1.8.2.1/edamame_cli-1.8.2.1-...exe, a tag
+          # and asset that never exist, so `choco install` 404s forever on an
+          # immutable package. Every revision ever pushed (1.8.1.1, 1.8.2.1) was
+          # dead on arrival for this reason.
+          #
+          # Emit a single-quoted LITERAL so nothing interpolates at install time
+          # and the URL always names the base version actually published.
+          (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$url64 = .*', "`$url64 = 'https://github.com/${{ github.repository }}/releases/download/v${VERSION}/edamame_cli-${VERSION}-x86_64-pc-windows-msvc.exe'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           (Get-Content chocolatey/tools/chocolateyInstall.ps1) -replace '\$checksum64 = ''.*''', "`$checksum64 = '${SHA_WIN}'" | Set-Content chocolatey/tools/chocolateyInstall.ps1
           
           # Publish to Chocolatey if API key is present.
