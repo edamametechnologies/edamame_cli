@@ -1808,7 +1808,7 @@ dependencies = [
 [[package]]
 name = "edamame_core"
 version = "1.8.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#e649614ae049fe4dc805ed89173b949e686b2133"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#c9ddf4f54b03fa5c54ccd947a27bc75a60b35b89"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1897,7 +1897,7 @@ dependencies = [
 [[package]]
 name = "edamame_foundation"
 version = "1.8.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#6776737493acf9bfddee099a9e2b9167decae01d"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#10fe0dd9d6c2cf943f31532e0fafa721d30fbf69"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2260,7 +2260,7 @@ version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ff9f725b347b91d04340444fcbce0770886e4a6513e5f8e9e73a9e344efe73b"
 dependencies = [
- "gio 0.22.8",
+ "gio 0.22.9",
  "gtk",
  "log",
  "objc2",
@@ -2307,7 +2307,7 @@ dependencies = [
 [[package]]
 name = "flodbadd"
 version = "1.8.3"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b3fea2a95eefdc181ba15e4c093c6f259f1ace2e"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#b84c97a17294e4c8dbe74bb21d1a4b550d5c1d35"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2725,16 +2725,16 @@ dependencies = [
 
 [[package]]
 name = "gio"
-version = "0.22.8"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b3e1f669909c326b9413bde5a742097b8c90a7d78f45326db13668984769ded"
+checksum = "b399f4650bb52c051f3fdf49a234e8a27ab5725c8cd774556c55eee64b2c0350"
 dependencies = [
  "futures-channel",
  "futures-core",
  "futures-io",
  "futures-util",
- "gio-sys 0.22.8",
- "glib 0.22.8",
+ "gio-sys 0.22.9",
+ "glib 0.22.9",
  "libc",
  "pin-project-lite",
  "smallvec",
@@ -2755,14 +2755,14 @@ dependencies = [
 
 [[package]]
 name = "gio-sys"
-version = "0.22.8"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "353fdc7da7cd16da916104b1e0e4e7de380ec9c8aaa20d4d742d66310ab4b0d5"
+checksum = "6c28739f914c15b87a9856000bed9cbd5b3a8afbca5e982d9a299e1601422cb5"
 dependencies = [
- "glib-sys 0.22.8",
- "gobject-sys 0.22.6",
+ "glib-sys 0.22.9",
+ "gobject-sys 0.22.9",
  "libc",
- "system-deps 7.0.8",
+ "system-deps 9.0.0",
  "windows-sys 0.61.2",
 ]
 
@@ -2791,9 +2791,9 @@ dependencies = [
 
 [[package]]
 name = "glib"
-version = "0.22.8"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddbcf514bd1881fc1b960e4e52b4e82873f4da3bceddbd58d42827b508888100"
+checksum = "18b9b8d350db41f690ec1b87109f202782748bbd8ab2f2ede17cb40d29e2838c"
 dependencies = [
  "bitflags 2.13.1",
  "futures-channel",
@@ -2801,9 +2801,9 @@ dependencies = [
  "futures-executor",
  "futures-task",
  "futures-util",
- "glib-macros 0.22.6",
- "glib-sys 0.22.8",
- "gobject-sys 0.22.6",
+ "glib-macros 0.22.9",
+ "glib-sys 0.22.9",
+ "gobject-sys 0.22.9",
  "libc",
  "memchr",
  "smallvec",
@@ -2825,14 +2825,14 @@ dependencies = [
 
 [[package]]
 name = "glib-macros"
-version = "0.22.6"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "506d23499707c7142898429757e8d9a3871d965239a2cb66dfa05052be6d6f19"
+checksum = "c9597c68fa7bdf4154a3079642cd21c4dccac0b0bdd2897d82861523bf91e7b9"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.4",
 ]
 
 [[package]]
@@ -2847,12 +2847,12 @@ dependencies = [
 
 [[package]]
 name = "glib-sys"
-version = "0.22.8"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "030967459f9f676851872c6304adea7825c6d462ec9b72554c733cf0c5952233"
+checksum = "99b38907e67e40dec9b60f858bcada952598719cb512a13eb13d6cdcd16f8295"
 dependencies = [
  "libc",
- "system-deps 7.0.8",
+ "system-deps 9.0.0",
 ]
 
 [[package]]
@@ -2874,13 +2874,13 @@ dependencies = [
 
 [[package]]
 name = "gobject-sys"
-version = "0.22.6"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22a861859b887a79cf461359c192c97a57d8fb0229dd291232e57aa11f6fa72c"
+checksum = "07595c9ba696bd9819cb6a8df39f08078f3dd679508fe052dd558492c2053834"
 dependencies = [
- "glib-sys 0.22.8",
+ "glib-sys 0.22.9",
  "libc",
- "system-deps 7.0.8",
+ "system-deps 9.0.0",
 ]
 
 [[package]]
@@ -7265,9 +7265,9 @@ dependencies = [
 
 [[package]]
 name = "system-deps"
-version = "7.0.8"
+version = "9.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "396a35feb67335377e0251fcbc1092fc85c484bd4e3a7a54319399da127796e7"
+checksum = "8a0dae2cbca1f0ff93795713cfe0a4c02f760e3c0b8ae2ab4ec4045808ff429f"
 dependencies = [
  "cfg-expr 0.20.9",
  "heck 0.5.0",
@@ -7907,7 +7907,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 [[package]]
 name = "undeadlock"
 version = "1.2.0"
-source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#f15e686c8d1f95cc1f40e4215146623c9a6da5ac"
+source = "git+https://github.com/edamametechnologies/undeadlock?branch=main#22ed69039b43433b38e4baab7285ac16b5eca0ec"
 dependencies = [
  "dashmap 6.2.1",
  "tokio",

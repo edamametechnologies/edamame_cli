@@ -329,6 +329,61 @@ fn print_method_help_with_meta(method: &str, return_type: &str, args_meta: &[(St
     }
 }
 
+/// Map positional JSON values onto the daemon's named-argument object using
+/// the method's argument metadata. Pure, split out of `handle_rpc` for unit
+/// tests. Returns the serialized JSON object, or a user-facing error message
+/// on arity mismatch.
+fn positional_args_to_object(
+    method: &str,
+    args_meta: &[(String, String)],
+    values: Vec<serde_json::Value>,
+) -> Result<String, String> {
+    if values.len() != args_meta.len() {
+        return Err(format!(
+            ">>>> Argument count mismatch for {}: provided {}, expected {}",
+            method,
+            values.len(),
+            args_meta.len()
+        ));
+    }
+    let mut map = serde_json::Map::with_capacity(args_meta.len());
+    for ((name, _ty), value) in args_meta.iter().zip(values.into_iter()) {
+        map.insert(name.clone(), value);
+    }
+    serde_json::to_string(&serde_json::Value::Object(map))
+        .map_err(|e| format!(">>>> Error serializing positional arguments: {:?}", e))
+}
+
+/// Format an RPC result for display. With `--pretty`, valid JSON is
+/// pretty-printed; anything else falls back to the raw `Result:` line.
+/// Pure, split out of `handle_rpc` for unit tests.
+fn format_rpc_result(result: &str, pretty: bool) -> String {
+    if pretty {
+        if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(result) {
+            serde_json::to_string_pretty(&json_value)
+                .unwrap_or_else(|_| format!("Result: {}", result))
+        } else {
+            format!("Result: {}", result)
+        }
+    } else {
+        format!("Result: {}", result)
+    }
+}
+
+/// Pure conversion half of `fetch_method_meta`, split out for unit tests.
+fn api_info_to_meta(
+    api_info: edamame_core::api::api_rpc::APIInfo,
+) -> (String, Vec<(String, String)>) {
+    (
+        api_info.return_type,
+        api_info
+            .args
+            .into_iter()
+            .map(|a| (a.name, a.arg_type))
+            .collect(),
+    )
+}
+
 fn fetch_method_meta(method: &str) -> Result<(String, Vec<(String, String)>), String> {
     match rpc_get_api_info(
         method.to_string(),
@@ -337,14 +392,7 @@ fn fetch_method_meta(method: &str) -> Result<(String, Vec<(String, String)>), St
         &EDAMAME_CLIENT_KEY,
         &EDAMAME_TARGET,
     ) {
-        Ok(Some(api_info)) => Ok((
-            api_info.return_type,
-            api_info
-                .args
-                .into_iter()
-                .map(|a| (a.name, a.arg_type))
-                .collect(),
-        )),
+        Ok(Some(api_info)) => Ok(api_info_to_meta(api_info)),
         Ok(None) => Err(format!("No information available for method: {}", method)),
         Err(e) => Err(format!("Could not fetch method info: {:?}", e)),
     }
@@ -433,27 +481,11 @@ fn handle_rpc(method: String, json_args_array: String, pretty: bool, verbose: bo
                 } else {
                     match fetch_method_meta(&method) {
                         Ok((_ret, args_meta)) => {
-                            if values.len() != args_meta.len() {
-                                eprintln!(
-                                    ">>>> Argument count mismatch for {}: provided {}, expected {}",
-                                    method,
-                                    values.len(),
-                                    args_meta.len()
-                                );
-                                print_method_help_from_core(&method);
-                                return ERROR_CODE_PARAM;
-                            }
-                            let mut map = serde_json::Map::with_capacity(args_meta.len());
-                            for ((name, _ty), value) in args_meta.iter().zip(values.into_iter()) {
-                                map.insert(name.clone(), value);
-                            }
-                            match serde_json::to_string(&serde_json::Value::Object(map)) {
-                                Ok(s) => Some(s),
-                                Err(e) => {
-                                    eprintln!(
-                                        ">>>> Error serializing positional arguments: {:?}",
-                                        e
-                                    );
+                            match positional_args_to_object(&method, &args_meta, values) {
+                                Ok(obj) => Some(obj),
+                                Err(msg) => {
+                                    eprintln!("{}", msg);
+                                    print_method_help_from_core(&method);
                                     return ERROR_CODE_PARAM;
                                 }
                             }
@@ -544,15 +576,7 @@ fn handle_rpc(method: String, json_args_array: String, pretty: bool, verbose: bo
         &EDAMAME_TARGET,
     ) {
         Ok(result) => {
-            let output = if pretty {
-                if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&result) {
-                    serde_json::to_string_pretty(&json_value).unwrap()
-                } else {
-                    format!("Result: {}", result)
-                }
-            } else {
-                format!("Result: {}", result)
-            };
+            let output = format_rpc_result(&result, pretty);
             if let Err(e) = write_stdout(&output) {
                 eprintln!(">>>> Error writing to stdout: {}", e);
                 return ERROR_CODE_SERVER_ERROR;
@@ -778,4 +802,182 @@ fn interactive_mode(verbose: bool) {
 
 pub fn main() {
     run();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use edamame_core::api::api_rpc::{APIArgs, APIInfo};
+    use serde_json::json;
+
+    // --- clap parsing: every subcommand (CI-4) ---
+
+    #[test]
+    fn cli_parses_every_subcommand() {
+        for argv in [
+            vec!["edamame_cli", "completion", "bash"],
+            vec!["edamame_cli", "list-methods"],
+            vec!["edamame_cli", "list-methods", "--pretty"],
+            vec!["edamame_cli", "get-method-info", "get_score"],
+            vec!["edamame_cli", "list-method-infos"],
+            vec!["edamame_cli", "interactive"],
+            vec!["edamame_cli", "rpc", "get_score"],
+            vec!["edamame_cli", "rpc", "get_score", "[true]"],
+            vec!["edamame_cli", "rpc", "get_score", "[true]", "--pretty"],
+        ] {
+            build_cli()
+                .try_get_matches_from(&argv)
+                .unwrap_or_else(|e| panic!("{:?} should parse: {e}", argv));
+        }
+    }
+
+    #[test]
+    fn cli_rpc_extracts_method_args_and_pretty_flag() {
+        let m = build_cli()
+            .try_get_matches_from(["edamame_cli", "rpc", "get_score", "[true]", "--pretty"])
+            .expect("should parse");
+        let (name, sub) = m.subcommand().expect("subcommand");
+        assert_eq!(name, "rpc");
+        assert_eq!(sub.get_one::<String>("METHOD").unwrap(), "get_score");
+        assert_eq!(sub.get_one::<String>("JSON_ARGS_ARRAY").unwrap(), "[true]");
+        assert!(sub.get_flag("pretty"));
+    }
+
+    #[test]
+    fn cli_completion_extracts_shell() {
+        let m = build_cli()
+            .try_get_matches_from(["edamame_cli", "completion", "zsh"])
+            .expect("should parse");
+        let (name, sub) = m.subcommand().expect("subcommand");
+        assert_eq!(name, "completion");
+        assert!(sub.get_one::<Shell>("SHELL").is_some());
+    }
+
+    #[test]
+    fn cli_get_method_info_requires_method() {
+        assert!(build_cli()
+            .try_get_matches_from(["edamame_cli", "get-method-info"])
+            .is_err());
+    }
+
+    #[test]
+    fn cli_counts_verbose_flags_globally() {
+        let m = build_cli()
+            .try_get_matches_from(["edamame_cli", "-vv", "list-methods"])
+            .expect("should parse");
+        assert_eq!(m.get_count("verbose"), 2);
+    }
+
+    #[test]
+    fn cli_rejects_unknown_subcommand_flag() {
+        assert!(build_cli()
+            .try_get_matches_from(["edamame_cli", "list-methods", "--bogus"])
+            .is_err());
+    }
+
+    // --- fetch_method_meta conversion half ---
+
+    #[test]
+    fn api_info_to_meta_maps_args_and_return_type() {
+        let info = APIInfo {
+            method: "set_thing".to_string(),
+            args: vec![
+                APIArgs {
+                    name: "name".to_string(),
+                    arg_type: "String".to_string(),
+                },
+                APIArgs {
+                    name: "enabled".to_string(),
+                    arg_type: "bool".to_string(),
+                },
+            ],
+            return_type: "()".to_string(),
+        };
+        let (ret, meta) = api_info_to_meta(info);
+        assert_eq!(ret, "()");
+        assert_eq!(
+            meta,
+            vec![
+                ("name".to_string(), "String".to_string()),
+                ("enabled".to_string(), "bool".to_string()),
+            ]
+        );
+    }
+
+    // --- positional argument marshalling ---
+
+    #[test]
+    fn positional_args_map_to_named_object_in_order() {
+        let meta = vec![
+            ("name".to_string(), "String".to_string()),
+            ("enabled".to_string(), "bool".to_string()),
+        ];
+        let obj = positional_args_to_object("set_thing", &meta, vec![json!("x"), json!(true)])
+            .expect("should map");
+        let parsed: serde_json::Value = serde_json::from_str(&obj).unwrap();
+        assert_eq!(parsed["name"], json!("x"));
+        assert_eq!(parsed["enabled"], json!(true));
+    }
+
+    #[test]
+    fn positional_args_arity_mismatch_is_an_error() {
+        let meta = vec![("name".to_string(), "String".to_string())];
+        let err = positional_args_to_object("set_thing", &meta, vec![json!("x"), json!(true)])
+            .expect_err("arity mismatch should error");
+        assert!(err.contains("Argument count mismatch"), "{err}");
+        assert!(err.contains("provided 2, expected 1"), "{err}");
+    }
+
+    // --- the --pretty JSON output path ---
+
+    #[test]
+    fn format_rpc_result_pretty_prints_valid_json() {
+        let out = format_rpc_result("{\"a\":1,\"b\":[2,3]}", true);
+        assert!(out.contains("\n"), "pretty output is multi-line: {out}");
+        assert!(out.contains("\"a\": 1"));
+    }
+
+    #[test]
+    fn format_rpc_result_falls_back_on_non_json() {
+        assert_eq!(format_rpc_result("plain text", true), "Result: plain text");
+        assert_eq!(
+            format_rpc_result("{\"a\":1}", false),
+            "Result: {\"a\":1}"
+        );
+    }
+
+    // --- helper text generators ---
+
+    #[test]
+    fn make_example_value_covers_wire_types() {
+        assert_eq!(make_example_value("String", "user"), "\"example_user\"");
+        assert_eq!(make_example_value("bool", "flag"), "true");
+        assert_eq!(make_example_value("u64", "count"), "123");
+        assert_eq!(make_example_value("f64", "ratio"), "1.5");
+        assert_eq!(make_example_value("Vec<String>", "items"), "[]");
+        assert_eq!(make_example_value("Option<String>", "maybe"), "null");
+        assert_eq!(make_example_value("CustomType", "x"), "\"example_x\"");
+    }
+
+    #[test]
+    fn best_suggestion_finds_close_method_names() {
+        let candidates = vec![
+            "get_score".to_string(),
+            "compute_score".to_string(),
+            "get_health".to_string(),
+        ];
+        assert_eq!(
+            best_suggestion("get_scor", &candidates).as_deref(),
+            Some("get_score")
+        );
+        assert_eq!(best_suggestion("totally_unrelated", &candidates), None);
+    }
+
+    #[test]
+    fn levenshtein_basic_distances() {
+        assert_eq!(levenshtein("", ""), 0);
+        assert_eq!(levenshtein("abc", "abc"), 0);
+        assert_eq!(levenshtein("abc", "abd"), 1);
+        assert_eq!(levenshtein("abc", ""), 3);
+    }
 }
