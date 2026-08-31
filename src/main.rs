@@ -940,10 +940,7 @@ mod tests {
     #[test]
     fn format_rpc_result_falls_back_on_non_json() {
         assert_eq!(format_rpc_result("plain text", true), "Result: plain text");
-        assert_eq!(
-            format_rpc_result("{\"a\":1}", false),
-            "Result: {\"a\":1}"
-        );
+        assert_eq!(format_rpc_result("{\"a\":1}", false), "Result: {\"a\":1}");
     }
 
     // --- helper text generators ---
