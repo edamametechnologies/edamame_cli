@@ -230,6 +230,15 @@ jobs:
       # Release
       ############################################################################################
 
+      # Signed build provenance (Sigstore, GitHub artifact attestations) for
+      # the file this job publishes. Verify a download with:
+      #   gh attestation verify <file> --repo edamametechnologies/edamame_cli
+      - name: Attest build provenance
+        if: github.ref == 'refs/heads/main'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: target/${{ matrix.target }}/release/edamame_cli${{ matrix.os == 'windows' && '.exe' || '' }}
+
       # Main only
       - name: Check for existing release
         if: github.ref == 'refs/heads/main'
