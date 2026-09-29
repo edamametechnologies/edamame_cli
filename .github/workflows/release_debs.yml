@@ -270,18 +270,31 @@ jobs:
         id: get_release
         shell: bash
         run: |
+          set -euo pipefail
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          echo "::set-output name=version::$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           VERSION_TAG=v${VERSION}
-          echo "::set-output name=tag::$VERSION_TAG"
-          if [[ -n "$(gh release view $VERSION_TAG --repo ${{ github.repository }} --json id -q .id)" ]]; then
-            echo "::set-output name=exists::true"
-              echo "::set-output name=upload_url::$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl )"
+          echo "tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
+          # Only a definite 404 means "no release yet". Any other failure (the
+          # org IP allow list, an expired token, a 5xx) fails the step: an
+          # empty `gh release view` output used to read as "no release".
+          if RELEASE="$(gh api "repos/${REPO}/releases/tags/${VERSION_TAG}" --jq '"\(.id) \(.upload_url)"' 2>&1)"; then
+            read -r RELEASE_ID UPLOAD_URL <<<"$RELEASE"
+            if ! [[ "$RELEASE_ID" =~ ^[0-9]+$ && "$UPLOAD_URL" == https://uploads.github.com/* ]]; then
+              echo "ERROR: unexpected answer looking up release ${VERSION_TAG} of ${REPO}: ${RELEASE}" >&2
+              exit 1
+            fi
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "upload_url=${UPLOAD_URL}" >> "$GITHUB_OUTPUT"
+          elif [[ "$RELEASE" == *"HTTP 404"* ]]; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=exists::false"
+            echo "ERROR: looking up release ${VERSION_TAG} of ${REPO} failed: ${RELEASE}" >&2
+            exit 1
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
 
       # Update the tag if it exists and points to a different commit
       - name: Update the tag if it exists and points to a different commit

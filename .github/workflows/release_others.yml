@@ -251,36 +251,30 @@ jobs:
           VERSION_TAG=v${VERSION}
           echo "tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
 
-          # Distinguish "release does not exist" from "could not determine".
-          #
-          # This used to be `[[ -n "$(gh release view ... -q .id)" ]]`, which
-          # discards the exit code: `gh` prints errors on stderr and nothing on
-          # stdout, so ANY transient failure (rate limit, 5xx, network blip)
-          # produced an empty string and the script concluded the release did
-          # not exist. The next step then ran `actions/create-release`, which
-          # fails 422 "already_exists" against the release that was there all
-          # along -- exactly how this job failed for v1.8.1, a release that had
-          # been published for 12 hours with assets actively uploading.
-          #
-          # Treat only an explicit not-found as "does not exist"; anything else
-          # is unknown and must fail loudly rather than guess.
-          set +e
-          view_out=$(gh release view "$VERSION_TAG" --repo "${{ github.repository }}" --json id -q .id 2>&1)
-          view_rc=$?
-          set -e
-          if [[ $view_rc -eq 0 && -n "$view_out" ]]; then
+          # Only a definite 404 means "no release yet"; any other failure (the
+          # org IP allow list, an expired token, a 5xx) fails the step.
+          # `[[ -n "$(gh release view ... -q .id)" ]]` read any failed lookup
+          # as "no release", and actions/create-release then failed 422
+          # "already_exists" on v1.8.1, published 12 hours earlier; the
+          # "not found" text match that replaced it also read any error text
+          # containing "not found" (e.g. "gh: command not found") that way.
+          if RELEASE="$(gh api "repos/${REPO}/releases/tags/${VERSION_TAG}" --jq '"\(.id) \(.upload_url)"' 2>&1)"; then
+            read -r RELEASE_ID UPLOAD_URL <<<"$RELEASE"
+            if ! [[ "$RELEASE_ID" =~ ^[0-9]+$ && "$UPLOAD_URL" == https://uploads.github.com/* ]]; then
+              echo "ERROR: unexpected answer looking up release ${VERSION_TAG} of ${REPO}: ${RELEASE}" >&2
+              exit 1
+            fi
             echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "upload_url=$(gh release view "$VERSION_TAG" --repo "${{ github.repository }}" --json uploadUrl -q .uploadUrl)" >> "$GITHUB_OUTPUT"
-          elif grep -qiE 'release not found|not found' <<<"$view_out"; then
+            echo "upload_url=${UPLOAD_URL}" >> "$GITHUB_OUTPUT"
+          elif [[ "$RELEASE" == *"HTTP 404"* ]]; then
             echo "exists=false" >> "$GITHUB_OUTPUT"
           else
-            echo "ERROR: could not determine whether $VERSION_TAG exists (rc=$view_rc):" >&2
-            echo "$view_out" >&2
-            echo "ERROR: refusing to guess -- creating a release that already exists fails 422." >&2
+            echo "ERROR: looking up release ${VERSION_TAG} of ${REPO} failed: ${RELEASE}" >&2
             exit 1
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
 
       # Update the tag if it exists and points to a different commit
       - name: Update the tag if it exists and points to a different commit

@@ -275,18 +275,31 @@ jobs:
         id: get_release
         shell: bash
         run: |
+          set -euo pipefail
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           VERSION_TAG=v${VERSION}
-          echo "tag=$VERSION_TAG" >> $GITHUB_OUTPUT
-          if gh release view $VERSION_TAG --repo ${{ github.repository }} --json id -q .id 2>/dev/null; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "upload_url=$(gh release view $VERSION_TAG --json uploadUrl -q .uploadUrl)" >> $GITHUB_OUTPUT
+          echo "tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
+          # Only a definite 404 means "no release yet". Any other failure (the
+          # org IP allow list, an expired token, a 5xx) fails the step: an
+          # empty `gh release view` output used to read as "no release".
+          if RELEASE="$(gh api "repos/${REPO}/releases/tags/${VERSION_TAG}" --jq '"\(.id) \(.upload_url)"' 2>&1)"; then
+            read -r RELEASE_ID UPLOAD_URL <<<"$RELEASE"
+            if ! [[ "$RELEASE_ID" =~ ^[0-9]+$ && "$UPLOAD_URL" == https://uploads.github.com/* ]]; then
+              echo "ERROR: unexpected answer looking up release ${VERSION_TAG} of ${REPO}: ${RELEASE}" >&2
+              exit 1
+            fi
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "upload_url=${UPLOAD_URL}" >> "$GITHUB_OUTPUT"
+          elif [[ "$RELEASE" == *"HTTP 404"* ]]; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "ERROR: looking up release ${VERSION_TAG} of ${REPO} failed: ${RELEASE}" >&2
+            exit 1
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
 
       - name: Update the tag if it exists
         if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists == 'true'
