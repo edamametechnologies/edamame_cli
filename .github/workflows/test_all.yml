@@ -126,10 +126,13 @@ jobs:
           # token + wait_for_api/wait_for_https are action INPUTS, not env vars.
           # wait_for_api blocks until connected mode lifts the org IP allow-list
           # for this runner's egress IP, so the later cargo git fetch of private
-          # crates does not 403 on github-hosted lanes.
+          # crates does not 403 on github-hosted lanes. The waits must probe
+          # the internal edamame_core the build fetches: this repository is
+          # public, answers at once, and so proved nothing.
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
           wait_for_api: true
           wait_for_https: true
+          wait_repository: edamametechnologies/edamame_core
         env:
           EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
           
