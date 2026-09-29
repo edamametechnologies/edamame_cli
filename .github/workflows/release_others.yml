@@ -510,7 +510,11 @@ jobs:
               echo "No changes to commit"
             fi
           else
-            echo "Skipping Homebrew publish: DEV_GITHUB_TOKEN not set"
+            # A release on main without the token is a broken publish, not a
+            # skip: the tap kept the previous version behind a green run. (The
+            # step runs on main only; other branches skip it entirely.)
+            echo "ERROR: DEV_GITHUB_TOKEN is not available to this repository; the Homebrew tap was not updated"
+            exit 1
           fi
 
       # Windows - Publish to Chocolatey with resolved version (may include .N suffix)
