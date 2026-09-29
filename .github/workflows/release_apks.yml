@@ -455,7 +455,10 @@ jobs:
           mkdir -p "$WORK_DIR"
           cd "$WORK_DIR"
           
-          aws s3 sync s3://edamame/${REPO_MAIN_PATH}/ . --exclude "*" --include "*.apk" || true
+          # The index is rebuilt from the packages downloaded here, so a failed
+          # sync must fail the step: read as "nothing published" (`|| true`),
+          # it would publish an index without the packages it did not get.
+          aws s3 sync s3://edamame/${REPO_MAIN_PATH}/ . --exclude "*" --include "*.apk"
           
           PKG_COUNT=$(ls -1 *.apk 2>/dev/null | wc -l)
           if [ "$PKG_COUNT" -gt 0 ]; then
