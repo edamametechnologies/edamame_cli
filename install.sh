@@ -5,7 +5,9 @@
 # Options:
 #   --install-dir PATH   Binary install directory (default: /usr/local/bin on Unix, $HOME on Windows)
 #   --force-binary       Skip package managers, use binary download
-#   --version VERSION    Install a specific version (default: latest)
+#   --version VERSION    Install a specific version (default: latest; required
+#                        for a binary install when the latest release cannot be
+#                        determined)
 #
 # Examples:
 #   curl --proto '=https' --tlsv1.2 -sSf \
@@ -26,7 +28,6 @@ warn()  { printf "${YELLOW}[WARN]${NC} %s\n" "$1"; }
 error() { printf "${RED}[ERROR]${NC} %s\n" "$1"; exit 1; }
 
 REPO_BASE_URL="https://github.com/edamametechnologies/edamame_cli"
-FALLBACK_VERSION="1.2.0"
 
 detect_platform() {
     local uname_out
@@ -57,10 +58,11 @@ download_file() {
 # that has not been lifted yet. The anonymous API call is no better on hosted
 # runners -- api.github.com allows 60 unauthenticated requests per hour per
 # source IP, and a shared macOS/Linux runner pool exhausts that on its own.
-# Either way the caller sees no error: the empty body falls through to
-# FALLBACK_VERSION and silently installs a years-old CLI whose RPC stub
-# registry predates most methods, which then surfaces far downstream as
-# "Method not found" on an RPC the daemon does support.
+# An empty answer used to fall through to a hardcoded fallback version and
+# silently install a years-old CLI whose RPC stub registry predates most
+# methods, which then surfaced far downstream as "Method not found" on an RPC
+# the daemon does support. There is no fallback version any more: see
+# "Resolve version" below.
 #
 # github.com/<owner>/<repo>/releases/latest answers with a 302 to the concrete
 # tag. It is unauthenticated, not rate limited, and not subject to the IP allow
@@ -213,18 +215,11 @@ fi
 
 VERSION="$CONFIG_VERSION"
 if [ -z "$VERSION" ]; then
+    # May stay empty (no network, a proxy, a rate limit). A package manager
+    # install below does not need it; the binary download stops with an error
+    # instead of installing a hardcoded old release, whose compiled-in RPC stub
+    # registry misses methods current daemons serve.
     VERSION=$(fetch_latest_version)
-    if [ -z "$VERSION" ]; then
-        # Name the consequence, not just the cause. The fallback is old enough
-        # that its compiled-in RPC stub registry is missing methods current
-        # daemons serve, so a caller that reads past this line gets
-        # "Method not found" with nothing pointing back here.
-        warn "Failed to determine latest version, using fallback $FALLBACK_VERSION"
-        warn "This is a DEGRADED install: $FALLBACK_VERSION predates many RPC methods."
-        warn "Pass --version <VERSION> to pin explicitly, or verify a specific method"
-        warn "is dispatchable with: edamame_cli get-method-info <method>"
-        VERSION="$FALLBACK_VERSION"
-    fi
 fi
 
 # ── Build artifact name and URL ──────────────────────────────────
@@ -236,8 +231,6 @@ case "$PLATFORM" in
     windows) SUFFIX="x86_64-pc-windows-msvc"; ARTIFACT_EXT=".exe" ;;
 esac
 
-ARTIFACT_NAME="edamame_cli-${VERSION}-${SUFFIX}${ARTIFACT_EXT}"
-ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${VERSION}/${ARTIFACT_NAME}"
 TARGET_NAME="edamame_cli${ARTIFACT_EXT}"
 TARGET_PATH="$INSTALL_DIR/$TARGET_NAME"
 
@@ -320,16 +313,18 @@ fi
 # ── Binary download fallback ────────────────────────────────────
 
 if [ "$pkg_installed" != "true" ]; then
+    if [ -z "$VERSION" ]; then
+        error "Could not determine the latest edamame_cli release (${REPO_BASE_URL}/releases/latest and the GitHub API did not answer). Pass --version <VERSION> to install a specific release; the list is at ${REPO_BASE_URL}/releases"
+    fi
+    ARTIFACT_NAME="edamame_cli-${VERSION}-${SUFFIX}${ARTIFACT_EXT}"
+    ARTIFACT_URL="${REPO_BASE_URL}/releases/download/v${VERSION}/${ARTIFACT_NAME}"
     info "Downloading edamame_cli ${VERSION} (${SUFFIX})..."
     TMP_BIN=$(mktemp)
     if ! download_file "$ARTIFACT_URL" "$TMP_BIN"; then
-        FALLBACK_NAME="edamame_cli-${FALLBACK_VERSION}-${SUFFIX}${ARTIFACT_EXT}"
-        FALLBACK_URL="${REPO_BASE_URL}/releases/download/v${FALLBACK_VERSION}/${FALLBACK_NAME}"
-        warn "Primary download failed, trying fallback v${FALLBACK_VERSION}..."
-        if ! download_file "$FALLBACK_URL" "$TMP_BIN"; then
-            rm -f "$TMP_BIN"
-            error "Failed to download edamame_cli binary."
-        fi
+        rm -f "$TMP_BIN"
+        # No fallback to an older release: that installed a CLI missing the RPC
+        # methods current daemons serve, behind a warning.
+        error "Failed to download edamame_cli ${VERSION} from ${ARTIFACT_URL}"
     fi
 
     if [ "$PLATFORM" != "windows" ]; then
