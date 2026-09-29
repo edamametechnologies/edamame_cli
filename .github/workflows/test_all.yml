@@ -452,8 +452,13 @@ jobs:
           dump_vulnerability_findings: true
           exit_on_vulnerability_findings: true
 
+      # `Run tests` is continue-on-error, so its failure surfaces only in these
+      # two steps. `!cancelled()` replaces the implicit `success()`: with it,
+      # a failing vulnerability gate above skipped both, and the run listed
+      # the gate as its only failure, which release_all.sh --ignore-dump
+      # soft-passes: a test failure read as a gate-only failure.
       - name: Slack alerts
-        if: steps.tests.outcome != 'success'
+        if: ${{ !cancelled() && steps.tests.outcome != 'success' }}
         uses: slackapi/slack-github-action@v1.26.0
         with:
           channel-id: 'C072J0U9TH7'
@@ -462,7 +467,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
       - name: Fail job if tests failed
-        if: steps.tests.outcome != 'success'
+        if: ${{ !cancelled() && steps.tests.outcome != 'success' }}
         run: |
           echo "Forcing job to fail because tests did not succeed."
           exit 1
