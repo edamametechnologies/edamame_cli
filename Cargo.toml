@@ -13,9 +13,6 @@ edamame_core = { git = "https://github.com/edamametechnologies/edamame_core", br
 # Serde
 serde_json = "1.0"
 
-# Paste
-paste = "1.0"
-
 # Lazy static
 lazy_static = "1.4.0"
 
