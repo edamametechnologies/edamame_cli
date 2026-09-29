@@ -30,7 +30,12 @@ jobs:
           edamame_id: ${{ github.run_id }}
           checkout: true
           token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          # cargo hack check fetches the private edamame_core with this token,
+          # which the org IP allow list refuses until the Hub lists this
+          # runner. This repository is public and answers the default probe at
+          # once, which proves nothing: probe the private repository instead.
           wait_for_api: true
+          wait_repository: edamametechnologies/edamame_core
 
       - name: Configure Git Authentication to import private crates
         run: |
