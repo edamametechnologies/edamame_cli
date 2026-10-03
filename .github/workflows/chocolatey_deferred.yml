@@ -1,0 +1,58 @@
+name: Chocolatey deferred publish
+
+# Chocolatey takes no new version of a package while an earlier one is in
+# moderation. release_others.yml then records its Chocolatey publish as
+# DEFERRED (a warning, its job summary and the chocolatey-deferred artifact
+# edamame_app's release_all.sh reads) instead of failing the release.
+#
+# This workflow retries the push every day for the newest release that
+# carries the Windows binary, while Chocolatey lacks it, and fails (with a
+# Slack alert) once Chocolatey has missed a release for more than
+# MAX_DEFERRED_DAYS: a deferral never becomes a silent skip. It also warns at
+# once when the version in moderation waits for its maintainer. The logic is
+# chocolatey/publish.ps1 -Mode Retry.
+
+on:
+  schedule:
+    - cron: '45 7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MAX_DEFERRED_DAYS: 7
+
+jobs:
+  retry:
+    name: Retry a deferred Chocolatey publish
+    # Chocolatey is production: main only.
+    if: github.ref == 'refs/heads/main'
+    # Self-hosted: the org IP allow list refuses GitHub API calls from hosted
+    # runners.
+    runs-on: vm-runner-windows
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Publish the latest release to Chocolatey when it is deferred
+        shell: pwsh
+        env:
+          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: ./chocolatey/publish.ps1 -Mode Retry -MaxDeferredDays $env:MAX_DEFERRED_DAYS -MarkerDir $env:RUNNER_TEMP
+
+      - name: Slack alert on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: 'C072J0U9TH7'
+          slack-message: "Chocolatey deferred publish for ${{ github.repository }} failed (a deferral older than ${{ env.MAX_DEFERRED_DAYS }} days, or a push error): https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
