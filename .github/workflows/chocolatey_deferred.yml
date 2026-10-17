@@ -33,13 +33,41 @@ jobs:
     name: Retry a deferred Chocolatey publish
     # Chocolatey is production: main only.
     if: github.ref == 'refs/heads/main'
-    # Self-hosted: the org IP allow list refuses GitHub API calls from hosted
-    # runners.
+    # Self-hosted Windows: the package is built and pushed with the
+    # Chocolatey CLI. The org IP allow list admits the runner through the
+    # Setup EDAMAME Posture step below, as for every job.
     runs-on: vm-runner-windows
     timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      # First step of every job (rule: edamame_app/self-hosted-runners.mdc,
+      # "applies to all workflow types"): the action's Hub registration is
+      # what admits this runner to the org IP allow list; without it the gh
+      # calls below get the allow list's 403 (every day from 2026-10-10 to
+      # 2026-10-17). It also checks out the repository.
+      - name: Setup EDAMAME Posture
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          edamame_user: ${{ vars.EDAMAME_POSTURE_USER }}
+          edamame_domain: ${{ vars.EDAMAME_POSTURE_DOMAIN }}
+          edamame_pin: ${{ secrets.EDAMAME_POSTURE_PIN }}
+          edamame_id: ${{ github.run_id }}-chocolatey-deferred
+          network_scan: true
+          auto_whitelist: true
+          auto_whitelist_artifact_name: edamame-auto-whitelist-chocolatey-deferred
+          auto_remediate: true
+          checkout: true
+          token: ${{ secrets.DEV_GITHUB_TOKEN }}
+          wait_for_api: true
+          wait_repository: edamametechnologies/edamame_core
+          wait_for_https: true
+          packet_capture: true
+          vulnerability_detection: true
+          vulnerability_detection_interval: "60"
+          agentic_mode: analyze
+          agentic_provider: edamame
+          agentic_interval: 600
+        env:
+          EDAMAME_LLM_API_KEY: ${{ secrets.EDAMAME_LLM_API_KEY }}
 
       - name: Publish the latest release to Chocolatey when it is deferred
         shell: pwsh
@@ -48,11 +76,26 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: ./chocolatey/publish.ps1 -Mode Retry -MaxDeferredDays $env:MAX_DEFERRED_DAYS -MarkerDir $env:RUNNER_TEMP
 
+      - name: Check job status before posture dump
+        id: job_status_check
+        if: failure()
+        run: echo "job_was_failing=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dump EDAMAME Posture sessions
+        id: dump_sessions
+        if: always()
+        uses: edamametechnologies/edamame_posture_action@v1
+        with:
+          dump_sessions_log: true
+          promote_exceptions: ${{ vars.EDAMAME_AUTO_WHITELIST_PROMOTE_EXCEPTIONS }}
+          dump_vulnerability_findings: true
+          exit_on_vulnerability_findings: true
+
       - name: Slack alert on failure
         if: failure()
         uses: slackapi/slack-github-action@v1.26.0
         with:
           channel-id: 'C072J0U9TH7'
-          slack-message: "Chocolatey deferred publish for ${{ github.repository }} failed (a deferral older than ${{ env.MAX_DEFERRED_DAYS }} days, or a push error): https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          slack-message: "${{ steps.job_status_check.outcome == 'success' && '[JOB FAILURE]' || '' }}${{ steps.dump_sessions.outcome == 'failure' && '[POSTURE POST JOB FAILURE]' || '' }} Chocolatey deferred publish for ${{ github.repository }} failed (a deferral older than ${{ env.MAX_DEFERRED_DAYS }} days, or a push error): https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
