@@ -1775,7 +1775,7 @@ dependencies = [
 [[package]]
 name = "edamame_backend"
 version = "0.3.5"
-source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#5b38afa3ed3713a619bdce94b70cb16df279f250"
+source = "git+https://github.com/edamametechnologies/edamame_backend?branch=main#bd8ac59f82577bb0fd2dc61871c65ecdb1eeaec7"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1789,7 +1789,7 @@ dependencies = [
 
 [[package]]
 name = "edamame_cli"
-version = "2.2.3"
+version = "2.3.0"
 dependencies = [
  "cargo-deb",
  "clap",
@@ -1803,8 +1803,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_core"
-version = "2.2.3"
-source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#ff5e1665612c2c3996f7e6f71534006f684bbf16"
+version = "2.3.0"
+source = "git+https://github.com/edamametechnologies/edamame_core?branch=main#bff8a8d7977aa4635f4e6b3277a0072d9a782fc0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1888,8 +1888,8 @@ dependencies = [
 
 [[package]]
 name = "edamame_foundation"
-version = "2.2.3"
-source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#8d41aecdf40408c9f5967a3a3b613b822c892517"
+version = "2.3.0"
+source = "git+https://github.com/edamametechnologies/edamame_foundation?branch=main#e999989a173890f8aabc8abe29bb46fdd6bdb98f"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2247,8 +2247,8 @@ dependencies = [
 
 [[package]]
 name = "flodbadd"
-version = "2.2.3"
-source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#7118aaef6db11ce2a37a7a08695eeeed69a538ca"
+version = "2.3.0"
+source = "git+https://github.com/edamametechnologies/flodbadd?branch=main#8c33a04a284848eb6681f8cf9966948b826785be"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -7264,7 +7264,7 @@ dependencies = [
 [[package]]
 name = "threatmodels_rs"
 version = "0.1.1"
-source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#ec72912fb56a45d46aa3b778e8fcc17550e9d18d"
+source = "git+https://github.com/edamametechnologies/threatmodels-rs?branch=main#71aa6d66e32ffb9a83b1608b9be717fef2e0aa18"
 dependencies = [
  "anyhow",
  "chrono",
