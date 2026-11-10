@@ -2,6 +2,11 @@ name: Build and publish for linux apks
 
 on:
   workflow_dispatch:
+    inputs:
+      assemble_as_prerelease:
+        description: 'Create the GitHub release as a prerelease, so that releases/latest keeps answering the previous version while this version is assembled; the caller then publishes it (gh release edit <tag> --prerelease=false --latest). release_all.sh passes true once it carries that publish step. Default: the release is the latest as soon as it is created, as before.'
+        type: boolean
+        default: false
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
@@ -313,6 +318,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
+      # With the `assemble_as_prerelease` input the release is created as a
+      # prerelease: several workflows assemble one version, and the public
+      # releases/latest redirect, which every installer resolves, must not
+      # point at it before all its assets and SHA256SUMS exist. The caller
+      # (edamame_app/release_all.sh) then publishes it with
+      #   gh release edit <tag> --prerelease=false --latest
+      # Without the input (the default, and a manual run) the release is the
+      # latest as soon as it is created, as before. A release that already
+      # exists keeps its flag: no step passes --prerelease or --latest to it.
       - name: Create release if it doesn't exist
         if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists != 'true'
         id: create_release
@@ -323,10 +337,79 @@ jobs:
           tag_name: ${{ steps.get_release.outputs.tag }}
           release_name: Release ${{ steps.get_release.outputs.tag }}
           draft: false
-          prerelease: false
+          prerelease: ${{ inputs.assemble_as_prerelease }}
+
+      # A published release's assets are IMMUTABLE (the guard of
+      # release_others.yml, "Check whether the release already carries this
+      # asset", applied to the three assets of this job).
+      #
+      # The three uploads below used to replace the asset on every run
+      # (`overwrite: true`). The builds are not bit-reproducible, so a re-run
+      # of this workflow put different bytes under a name whose digest
+      # SHA256SUMS had already recorded, and gave the apk repository a
+      # package that differed from the first one published.
+      #
+      # An asset the release already carries is kept and its upload skipped;
+      # the apk repository then receives the published .apk (see "Fetch the
+      # published .apk from the release"). To genuinely replace a bad asset,
+      # delete it from the release (or bump the version): an explicit act, not
+      # a side effect of a re-run.
+      - name: Check whether the release already carries these assets
+        if: github.ref == 'refs/heads/main'
+        id: asset_check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.get_release.outputs.version }}"
+          TAG="${{ steps.get_release.outputs.tag }}"
+          # The names the three upload steps below give their asset.
+          BINARY_NAME="edamame_cli-${VERSION}-${{ matrix.target }}"
+          DEBUG_NAME="edamame_cli-${VERSION}-${{ matrix.target }}-debug"
+          APK_NAME="edamame-cli-${VERSION}-r1-${{ matrix.arch }}.apk"
+          echo "apk_name=${APK_NAME}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ steps.get_release.outputs.exists }}" != "true" ]]; then
+            echo "Release ${TAG} is new; assets will be uploaded."
+            {
+              echo "binary_exists=false"
+              echo "debug_exists=false"
+              echo "apk_exists=false"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Same discipline as `Check for existing release`: never turn a gh
+          # failure into "not present", or a transient API error would replace
+          # a published asset.
+          set +e
+          names=$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[].name' 2>&1)
+          rc=$?
+          set -e
+          if [[ $rc -ne 0 ]]; then
+            echo "ERROR: could not list assets of ${TAG} (rc=${rc}):" >&2
+            echo "${names}" >&2
+            echo "ERROR: refusing to guess -- replacing a published asset breaks pinned checksums." >&2
+            exit 1
+          fi
+
+          # $1 = output name, $2 = asset name
+          check_asset() {
+            if grep -qxF "$2" <<<"${names}"; then
+              echo "Asset $2 is already published on ${TAG}; keeping the published file."
+              echo "$1=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "Asset $2 not yet on ${TAG}; will upload."
+              echo "$1=false" >> "$GITHUB_OUTPUT"
+            fi
+          }
+          check_asset binary_exists "$BINARY_NAME"
+          check_asset debug_exists "$DEBUG_NAME"
+          check_asset apk_exists "$APK_NAME"
 
       - name: Upload asset to release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.asset_check.outputs.binary_exists != 'true'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
@@ -338,7 +421,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload debug asset to release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.asset_check.outputs.debug_exists != 'true'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
@@ -350,7 +433,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload .apk asset to release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.asset_check.outputs.apk_exists != 'true'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
@@ -360,6 +443,30 @@ jobs:
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The apk repository must serve the bytes the release carries. When the
+      # release already had this .apk (its upload was skipped above), take the
+      # published file: the S3 step below publishes it instead of the .apk
+      # this run built. Runs on the host (gh is not in the Alpine chroot);
+      # $RUNNER_TEMP is under the work directory the chroot mounts.
+      - name: Fetch the published .apk from the release
+        if: github.ref == 'refs/heads/main' && steps.asset_check.outputs.apk_exists == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.get_release.outputs.tag }}"
+          APK_NAME="${{ steps.asset_check.outputs.apk_name }}"
+          PUBLISHED_DIR="${RUNNER_TEMP}/published"
+          mkdir -p "$PUBLISHED_DIR"
+          rm -f "${PUBLISHED_DIR}/${APK_NAME}"
+          gh release download "$TAG" --repo "${{ github.repository }}" --pattern "$APK_NAME" --dir "$PUBLISHED_DIR"
+          if [[ ! -f "${PUBLISHED_DIR}/${APK_NAME}" || ! -s "${PUBLISHED_DIR}/${APK_NAME}" ]]; then
+            echo "ERROR: ${APK_NAME} was not downloaded from release ${TAG}" >&2
+            exit 1
+          fi
+          echo "Fetched the published ${APK_NAME} (sha256 $(sha256sum "${PUBLISHED_DIR}/${APK_NAME}" | awk '{print $1}'))"
 
       - name: Upload .apk file to S3 and update repository index
         if: github.ref == 'refs/heads/main'
@@ -397,8 +504,20 @@ jobs:
           REPO_BASE_PATH="repo/alpine/v3.15"
           REPO_MAIN_PATH="${REPO_BASE_PATH}/main/${{ matrix.arch }}"
           
+          # The .apk the apk repository receives is the one the release
+          # carries: the file fetched from the release when it was already
+          # published there, the one this run built and uploaded otherwise.
+          APK_FILE="target/${{ matrix.target }}/apk/edamame-cli-${VERSION}-r1.apk"
+          if [ "${{ steps.asset_check.outputs.apk_exists }}" = "true" ]; then
+            APK_FILE="${{ runner.temp }}/published/${{ steps.asset_check.outputs.apk_name }}"
+          fi
+          if [ ! -f "$APK_FILE" ] || [ ! -s "$APK_FILE" ]; then
+            echo "ERROR: no .apk to publish at ${APK_FILE}" >&2
+            exit 1
+          fi
+
           # Upload our APK to S3 (safe to do concurrently, no index conflict)
-          aws s3 cp target/${{ matrix.target }}/apk/edamame-cli-${VERSION}-r1.apk \
+          aws s3 cp "$APK_FILE" \
             s3://edamame/${REPO_MAIN_PATH}/edamame-cli-${VERSION}-r1.apk \
             --acl public-read
           

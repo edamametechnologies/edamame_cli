@@ -2,6 +2,11 @@ name: Build and publish for other platforms
 
 on:
   workflow_dispatch:
+    inputs:
+      assemble_as_prerelease:
+        description: 'Create the GitHub release as a prerelease, so that releases/latest keeps answering the previous version while this version is assembled; the caller then publishes it (gh release edit <tag> --prerelease=false --latest). release_all.sh passes true once it carries that publish step. Default: the release is the latest as soon as it is created, as before.'
+        type: boolean
+        default: false
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
@@ -21,7 +26,7 @@ jobs:
       matrix:
         include:
           - os: macos
-            runs-on: macos-latest
+            runs-on: macos-26
             arch: universal
             target: universal-apple-darwin
           - os: windows
@@ -321,6 +326,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       # Main only
+      # With the `assemble_as_prerelease` input the release is created as a
+      # prerelease: several workflows assemble one version, and the public
+      # releases/latest redirect, which every installer resolves, must not
+      # point at it before all its assets and SHA256SUMS exist. The caller
+      # (edamame_app/release_all.sh) then publishes it with
+      #   gh release edit <tag> --prerelease=false --latest
+      # Without the input (the default, and a manual run) the release is the
+      # latest as soon as it is created, as before. A release that already
+      # exists keeps its flag: no step passes --prerelease or --latest to it.
       - name: Create release if it doesn't exist
         if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists != 'true'
         # This populates steps.get_release.outputs.upload_url with the upload_url of the release
@@ -332,7 +346,7 @@ jobs:
           tag_name: ${{ steps.get_release.outputs.tag }}
           release_name: Release ${{ steps.get_release.outputs.tag }}
           draft: false
-          prerelease: false
+          prerelease: ${{ inputs.assemble_as_prerelease }}
 
       # Find next available Chocolatey version (appends .1, .2, ... suffix if base exists)
       - name: Resolve Chocolatey package version

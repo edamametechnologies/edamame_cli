@@ -2,6 +2,11 @@ name: Build and publish for linux debs
 
 on:
   workflow_dispatch:
+    inputs:
+      assemble_as_prerelease:
+        description: 'Create the GitHub release as a prerelease, so that releases/latest keeps answering the previous version while this version is assembled; the caller then publishes it (gh release edit <tag> --prerelease=false --latest). release_all.sh passes true once it carries that publish step. Default: the release is the latest as soon as it is created, as before.'
+        type: boolean
+        default: false
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
@@ -19,19 +24,19 @@ jobs:
       matrix:
         include:
           - os: ubuntu
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
             arch: i386
             target: i686-unknown-linux-gnu
             deb_arch: i386
           - os: ubuntu
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
             arch: armhf
             target: armv7-unknown-linux-gnueabihf
             deb_arch: armhf
           - os: ubuntu
             # We have a hard time finding an older version of Ubuntu to generate compatible binaries for older glibc
             # So we use cross-compilation for this target
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
             arch: amd64
             target: x86_64-unknown-linux-gnu
             deb_arch: amd64
@@ -310,6 +315,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       # Main only
+      # With the `assemble_as_prerelease` input the release is created as a
+      # prerelease: several workflows assemble one version, and the public
+      # releases/latest redirect, which every installer resolves, must not
+      # point at it before all its assets and SHA256SUMS exist. The caller
+      # (edamame_app/release_all.sh) then publishes it with
+      #   gh release edit <tag> --prerelease=false --latest
+      # Without the input (the default, and a manual run) the release is the
+      # latest as soon as it is created, as before. A release that already
+      # exists keeps its flag: no step passes --prerelease or --latest to it.
       - name: Create release if it doesn't exist
         if: github.ref == 'refs/heads/main' && steps.get_release.outputs.exists != 'true'
         # This populates steps.get_release.outputs.upload_url with the upload_url of the release
@@ -321,11 +335,77 @@ jobs:
           tag_name: ${{ steps.get_release.outputs.tag }}
           release_name: Release ${{ steps.get_release.outputs.tag }}
           draft: false
-          prerelease: false
+          prerelease: ${{ inputs.assemble_as_prerelease }}
+
+      # Main only - a published release's assets are IMMUTABLE (the guard of
+      # release_others.yml, "Check whether the release already carries this
+      # asset", applied to the two assets of this job).
+      #
+      # Both uploads below used to replace the asset on every run
+      # (`overwrite: true`). The builds are not bit-reproducible, so a re-run
+      # of this workflow put different bytes under a name whose digest
+      # SHA256SUMS had already recorded, and gave the apt repository a .deb
+      # that differed from the first one published.
+      #
+      # An asset the release already carries is kept and its upload skipped;
+      # the apt repository then receives the published .deb (see "Fetch the
+      # published .deb from the release"). To genuinely replace a bad asset,
+      # delete it from the release (or bump the version): an explicit act, not
+      # a side effect of a re-run.
+      - name: Check whether the release already carries these assets
+        if: github.ref == 'refs/heads/main'
+        id: asset_check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.get_release.outputs.version }}"
+          TAG="${{ steps.get_release.outputs.tag }}"
+          # The names the two upload steps below give their asset.
+          BINARY_NAME="edamame_cli-${VERSION}-${{ matrix.target }}${{ matrix.os == 'windows' && '.exe' || '' }}"
+          DEB_NAME="edamame-cli_${VERSION}-1_${{ matrix.deb_arch }}.deb"
+          echo "deb_name=${DEB_NAME}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ steps.get_release.outputs.exists }}" != "true" ]]; then
+            echo "Release ${TAG} is new; assets will be uploaded."
+            {
+              echo "binary_exists=false"
+              echo "deb_exists=false"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Same discipline as `Check for existing release`: never turn a gh
+          # failure into "not present", or a transient API error would replace
+          # a published asset.
+          set +e
+          names=$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[].name' 2>&1)
+          rc=$?
+          set -e
+          if [[ $rc -ne 0 ]]; then
+            echo "ERROR: could not list assets of ${TAG} (rc=${rc}):" >&2
+            echo "${names}" >&2
+            echo "ERROR: refusing to guess -- replacing a published asset breaks pinned checksums." >&2
+            exit 1
+          fi
+
+          # $1 = output name, $2 = asset name
+          check_asset() {
+            if grep -qxF "$2" <<<"${names}"; then
+              echo "Asset $2 is already published on ${TAG}; keeping the published file."
+              echo "$1=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "Asset $2 not yet on ${TAG}; will upload."
+              echo "$1=false" >> "$GITHUB_OUTPUT"
+            fi
+          }
+          check_asset binary_exists "$BINARY_NAME"
+          check_asset deb_exists "$DEB_NAME"
 
       # Main only
       - name: Upload asset to release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.asset_check.outputs.binary_exists != 'true'
         # Supports overwrite
         uses: shogo82148/actions-upload-release-asset@v1
         with:
@@ -341,7 +421,7 @@ jobs:
       # Main only, like every other release step: on another branch the
       # release lookup is skipped and this step had no release to upload to.
       - name: Upload .deb asset to release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.asset_check.outputs.deb_exists != 'true'
         uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_release.outputs.exists == 'true' && steps.get_release.outputs.upload_url || steps.create_release.outputs.upload_url }}
@@ -351,6 +431,29 @@ jobs:
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The apt repository must serve the bytes the release carries. When the
+      # release already had this .deb (its upload was skipped above), take the
+      # published file: the S3 step below publishes it instead of the .deb
+      # this run built.
+      - name: Fetch the published .deb from the release
+        if: github.ref == 'refs/heads/main' && steps.asset_check.outputs.deb_exists == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.get_release.outputs.tag }}"
+          DEB_NAME="${{ steps.asset_check.outputs.deb_name }}"
+          PUBLISHED_DIR="${RUNNER_TEMP}/published"
+          mkdir -p "$PUBLISHED_DIR"
+          rm -f "${PUBLISHED_DIR}/${DEB_NAME}"
+          gh release download "$TAG" --repo "${{ github.repository }}" --pattern "$DEB_NAME" --dir "$PUBLISHED_DIR"
+          if [[ ! -f "${PUBLISHED_DIR}/${DEB_NAME}" || ! -s "${PUBLISHED_DIR}/${DEB_NAME}" ]]; then
+            echo "ERROR: ${DEB_NAME} was not downloaded from release ${TAG}" >&2
+            exit 1
+          fi
+          echo "Fetched the published ${DEB_NAME} (sha256 $(sha256sum "${PUBLISHED_DIR}/${DEB_NAME}" | awk '{print $1}'))"
 
       - name: Upload .deb files to S3
         if: github.ref == 'refs/heads/main'
@@ -368,12 +471,25 @@ jobs:
           # Get the key ID (last 16 characters of the fingerprint)
           KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | awk '{print $2}' | cut -d'/' -f2)
 
-          # Install deb-s3
-          sudo gem install deb-s3
+          # Install deb-s3 (pinned: a release build installs a known version)
+          sudo gem install deb-s3 -v 26.1.0
+
+          # The .deb the apt repository receives is the one the release
+          # carries: the file fetched from the release when it was already
+          # published there, the one this run built and uploaded otherwise.
+          DEB_NAME="${{ steps.asset_check.outputs.deb_name }}"
+          DEB_FILE="target/${{ matrix.target }}/debian/${DEB_NAME}"
+          if [[ "${{ steps.asset_check.outputs.deb_exists }}" == "true" ]]; then
+            DEB_FILE="${RUNNER_TEMP}/published/${DEB_NAME}"
+          fi
+          if [[ ! -f "$DEB_FILE" || ! -s "$DEB_FILE" ]]; then
+            echo "ERROR: no .deb to publish at ${DEB_FILE}" >&2
+            exit 1
+          fi
 
           # Upload .deb files to S3 with explicit GPG signing
           deb-s3 upload --bucket edamame --prefix repo \
-            target/${{ matrix.target }}/debian/edamame-cli_${{ steps.get_release.outputs.version }}-1_${{ matrix.deb_arch }}.deb \
+            "$DEB_FILE" \
             --sign=$KEY_ID \
             --gpg-options="--batch --pinentry-mode loopback --passphrase $GPG_PASSPHRASE" \
             --suite stable \
