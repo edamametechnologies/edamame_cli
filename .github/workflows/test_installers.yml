@@ -20,6 +20,16 @@ on:
           path belongs.
         type: boolean
         default: false
+      version:
+        description: >-
+          Release to test: "latest" (the default, and what the schedule
+          tests), a version (2.3.2) or its tag (v2.3.2). With a version, the
+          GitHub release jobs download that release's assets by tag and the
+          package jobs install that version, without resolving
+          releases/latest: a release can then be tested before it is the
+          latest one, while it is still a prerelease.
+        type: string
+        default: latest
 
 # Auto cancel previous runs if they were not completed.
 concurrency:
@@ -35,11 +45,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Determine latest version
+      - name: Determine the version to test
         id: version
         shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
+          # A version given as input is the one to install: nothing is
+          # resolved. (Empty on the schedule, which tests the latest release.)
+          REQUESTED="${REQUESTED_VERSION:-latest}"
+          REQUESTED="${REQUESTED#v}"
+          if [[ "$REQUESTED" != "latest" ]]; then
+            if ! [[ "$REQUESTED" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::version must be latest, X.Y.Z or vX.Y.Z, got '${REQUESTED_VERSION}'"
+              exit 1
+            fi
+            echo "Testing the requested version: ${REQUESTED}"
+            echo "version=${REQUESTED}" >> "${GITHUB_OUTPUT}"
+            echo "requested=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
           # The public releases/latest redirect needs no token, so the org IP
           # allow list does not apply on this hosted runner (the repo is
           # public) and there is no API rate limit. Only a redirect to a tag
@@ -73,6 +99,7 @@ jobs:
           fi
           echo "Found latest version: ${VERSION}"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "requested=false" >> "${GITHUB_OUTPUT}"
 
       - name: Install prerequisites
         shell: bash
@@ -195,7 +222,14 @@ jobs:
             sudo tee /etc/apt/sources.list.d/edamame.list >/dev/null
           wait_for_apt_locks
           run_apt update -qq
-          run_apt install -y edamame-cli
+          # A requested version is installed as such (the release workflow
+          # names the package <version>-1); otherwise whatever the repository
+          # serves.
+          if [[ "${{ steps.version.outputs.requested }}" == "true" ]]; then
+            run_apt install -y "edamame-cli=${{ steps.version.outputs.version }}-1"
+          else
+            run_apt install -y edamame-cli
+          fi
 
       - name: Verify binary is available
         id: verify
@@ -206,6 +240,12 @@ jobs:
           EXPECTED_VERSION="${{ steps.version.outputs.version }}"
           echo "Installed: ${INSTALLED_VERSION:-unknown}, Expected: ${EXPECTED_VERSION}"
           if [[ -n "$INSTALLED_VERSION" && -n "$EXPECTED_VERSION" && "$INSTALLED_VERSION" != "$EXPECTED_VERSION" ]]; then
+            # A requested version that is not the one installed fails the
+            # job: the test would report on another release.
+            if [[ "${{ steps.version.outputs.requested }}" == "true" ]]; then
+              echo "::error::Version mismatch (installed=${INSTALLED_VERSION} requested=${EXPECTED_VERSION})"
+              exit 1
+            fi
             echo "WARNING: Version mismatch (installed=${INSTALLED_VERSION} expected=${EXPECTED_VERSION})"
           fi
           edamame_cli --help | head -n 20
@@ -244,6 +284,8 @@ jobs:
 
       - name: Add repository and install edamame-cli
         id: install
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           ARCH="$(uname -m)"
@@ -251,7 +293,21 @@ jobs:
           wget -q -O /etc/apk/keys/edamame.rsa.pub "${REPO_URL}/${ARCH}/edamame.rsa.pub" || true
           echo "${REPO_URL}" >> /etc/apk/repositories
           apk update
-          apk add --no-cache edamame-cli || { echo "apk install failed"; exit 1; }
+          # A requested version is installed as such (the release workflow
+          # names the package <version>-r1); otherwise whatever the
+          # repository serves. This step runs under the container's sh.
+          REQUESTED="${REQUESTED_VERSION:-latest}"
+          REQUESTED="${REQUESTED#v}"
+          PACKAGE="edamame-cli"
+          case "$REQUESTED" in
+            latest) ;;
+            ""|*[!0-9.]*|.*|*.|*..*)
+              echo "::error::version must be latest, X.Y.Z or vX.Y.Z, got '${REQUESTED_VERSION}'"
+              exit 1 ;;
+            *) PACKAGE="edamame-cli=${REQUESTED}-r1" ;;
+          esac
+          echo "Installing ${PACKAGE}"
+          apk add --no-cache "$PACKAGE" || { echo "apk install failed"; exit 1; }
 
       - name: Verify binary is available
         id: verify
@@ -298,10 +354,22 @@ jobs:
 
       - name: Verify binary is available
         id: verify
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           command -v edamame_cli
           edamame_cli --version || true
+          # The tap serves one version: a requested version must be it.
+          REQUESTED="${REQUESTED_VERSION:-latest}"
+          REQUESTED="${REQUESTED#v}"
+          if [[ "$REQUESTED" != "latest" ]]; then
+            INSTALLED_VERSION=$(edamame_cli --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+            if [[ "$INSTALLED_VERSION" != "$REQUESTED" ]]; then
+              echo "::error::Homebrew installed ${INSTALLED_VERSION:-an unknown version}, not the requested ${REQUESTED}"
+              exit 1
+            fi
+          fi
           edamame_cli --help | head -n 20
 
       - name: Slack alerts
@@ -333,29 +401,50 @@ jobs:
       - name: Install via Chocolatey
         id: install
         shell: pwsh
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
-          function Install-FromLatestGithubRelease {
-            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/edamametechnologies/edamame_cli/releases/latest" -UseBasicParsing
-            $version = $release.tag_name.TrimStart('v')
-            $assetName = "edamame_cli-$version-x86_64-pc-windows-msvc.exe"
-            $asset = $release.assets | Where-Object { $_.name -eq $assetName } | Select-Object -First 1
-            if (-not $asset) {
-              throw "Latest GitHub release $($release.tag_name) does not contain $assetName"
-            }
+          # The version to test: empty for "latest" (the default, and the
+          # schedule), else X.Y.Z from the input (a leading v is dropped).
+          $requested = "$env:REQUESTED_VERSION".Trim()
+          if ($requested.StartsWith('v')) { $requested = $requested.Substring(1) }
+          if ($requested -eq 'latest') { $requested = '' }
+          if ($requested -and ($requested -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$')) {
+            throw "version must be latest, X.Y.Z or vX.Y.Z, got '$env:REQUESTED_VERSION'"
+          }
+
+          function Install-FromGithubRelease {
             $binDir = Join-Path $env:RUNNER_TEMP "edamame_cli_bin"
             New-Item -ItemType Directory -Force -Path $binDir | Out-Null
             $dest = Join-Path $binDir "edamame_cli.exe"
-            Write-Host "Falling back to latest GitHub release asset: $($asset.browser_download_url)"
-            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $dest -UseBasicParsing
+            if ($requested) {
+              # The requested release, by its tag: a public download, which
+              # also serves a release that is not the latest one.
+              $url = "https://github.com/edamametechnologies/edamame_cli/releases/download/v$requested/edamame_cli-$requested-x86_64-pc-windows-msvc.exe"
+            } else {
+              $release = Invoke-RestMethod -Uri "https://api.github.com/repos/edamametechnologies/edamame_cli/releases/latest" -UseBasicParsing
+              $version = $release.tag_name.TrimStart('v')
+              $assetName = "edamame_cli-$version-x86_64-pc-windows-msvc.exe"
+              $asset = $release.assets | Where-Object { $_.name -eq $assetName } | Select-Object -First 1
+              if (-not $asset) {
+                throw "Latest GitHub release $($release.tag_name) does not contain $assetName"
+              }
+              $url = $asset.browser_download_url
+            }
+            Write-Host "Falling back to the GitHub release asset: $url"
+            Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
             Add-Content -Path $env:GITHUB_PATH -Value $binDir
           }
+
+          $chocoArgs = @('install', 'edamame-cli', '-y', '--no-progress')
+          if ($requested) { $chocoArgs += @('--version', $requested) }
 
           $maxRetries = 3
           $retryDelay = 30
           $installed = $false
           for ($i = 1; $i -le $maxRetries; $i++) {
             Write-Host "Chocolatey install attempt $i/$maxRetries"
-            choco install edamame-cli -y --no-progress
+            choco @chocoArgs
             if ($LASTEXITCODE -eq 0) {
               $installed = $true
               break
@@ -368,8 +457,8 @@ jobs:
             }
           }
           if (-not $installed) {
-            Write-Warning "Chocolatey install failed; validating latest GitHub release binary instead."
-            Install-FromLatestGithubRelease
+            Write-Warning "Chocolatey install failed; validating the GitHub release binary instead."
+            Install-FromGithubRelease
           }
 
       - name: Verify binary is available
@@ -440,11 +529,29 @@ jobs:
       # list" -- it failed on all three platforms the first time this job ran.
       # Public release reads carry no such restriction, which is why the
       # long-standing linux-apt job resolves versions the same way.
-      - name: Resolve latest release
+      #
+      # A version given as input names the release: its tag is v<version> and
+      # nothing is resolved, so the job also tests a release that is not (or
+      # not yet) the latest one.
+      - name: Resolve the release to test
         id: rel
         shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
+          REQUESTED="${REQUESTED_VERSION:-latest}"
+          REQUESTED="${REQUESTED#v}"
+          if [[ "$REQUESTED" != "latest" ]]; then
+            if ! [[ "$REQUESTED" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::version must be latest, X.Y.Z or vX.Y.Z, got '${REQUESTED_VERSION}'"
+              exit 1
+            fi
+            echo "tag=v${REQUESTED}" >> "$GITHUB_OUTPUT"
+            echo "version=${REQUESTED}" >> "$GITHUB_OUTPUT"
+            echo "Validating the requested release v${REQUESTED}"
+            exit 0
+          fi
           REDIRECT="$(curl -sSI "https://github.com/edamametechnologies/edamame_cli/releases/latest" \
             | grep -i '^location:' | sed 's/location: *//i' | tr -d '\r')"
           TAG="$(printf '%s' "$REDIRECT" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
