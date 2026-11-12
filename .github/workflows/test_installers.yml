@@ -250,20 +250,6 @@ jobs:
           fi
           edamame_cli --help | head -n 20
 
-      - name: Slack alerts
-        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *CLI Installer Test (Ubuntu APT)*:
-            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
       - name: Fail job if tests failed
         if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
         run: |
@@ -317,20 +303,6 @@ jobs:
           edamame_cli --version || true
           edamame_cli --help | head -n 20
 
-      - name: Slack alerts
-        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *CLI Installer Test (Alpine APK)*:
-            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
       - name: Fail job if tests failed
         if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
         run: |
@@ -371,20 +343,6 @@ jobs:
             fi
           fi
           edamame_cli --help | head -n 20
-
-      - name: Slack alerts
-        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *CLI Installer Test (macOS Homebrew)*:
-            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
 
       - name: Fail job if tests failed
         if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
@@ -477,20 +435,6 @@ jobs:
             exit 1
           }
 
-      - name: Slack alerts
-        if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *CLI Installer Test (Windows Chocolatey)*:
-            - Installation: ${{ steps.install.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            - Verification: ${{ steps.verify.outcome == 'success' && '✅ Success' || '❌ Failed' }}
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
       - name: Fail job if tests failed
         if: ${{ always() && (steps.install.outcome != 'success' || steps.verify.outcome != 'success') }}
         run: |
@@ -582,21 +526,17 @@ jobs:
           ./"$ASSET" --version || ./"$ASSET" --help | head -n 5
           echo "OK: $ASSET is present and executable"
 
-      - name: Slack alerts
-        if: ${{ always() && steps.verify.outcome != 'success' }}
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: |
-            *CLI Release Asset Test (${{ matrix.runner }})*:
-            - Asset verification: ❌ Failed
-            More details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        continue-on-error: true
-
       - name: Fail job if tests failed
         if: ${{ always() && steps.verify.outcome != 'success' }}
         run: |
           echo "Release asset test for ${{ matrix.runner }} did not succeed"
           exit 1
+
+  notify:
+    name: Slack alert
+    needs: [linux-apt, linux-apk, macos-brew, windows-choco, github-release]
+    if: always() && github.event_name != 'pull_request'
+    uses: edamametechnologies/.github/.github/workflows/slack-notify.yml@main
+    with:
+      results: ${{ toJSON(needs) }}
+    secrets: inherit
