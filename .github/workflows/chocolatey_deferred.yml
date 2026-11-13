@@ -91,11 +91,12 @@ jobs:
           dump_vulnerability_findings: true
           exit_on_vulnerability_findings: true
 
-      - name: Slack alert on failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          channel-id: 'C072J0U9TH7'
-          slack-message: "${{ steps.job_status_check.outcome == 'success' && '[JOB FAILURE]' || '' }}${{ steps.dump_sessions.outcome == 'failure' && '[POSTURE POST JOB FAILURE]' || '' }} Chocolatey deferred publish for ${{ github.repository }} failed (a deferral older than ${{ env.MAX_DEFERRED_DAYS }} days, or a push error): https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+  notify:
+    name: Slack alert
+    needs: [retry]
+    if: always() && github.event_name != 'pull_request'
+    uses: edamametechnologies/.github/.github/workflows/slack-notify.yml@main
+    with:
+      results: ${{ toJSON(needs) }}
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
