@@ -141,7 +141,7 @@ jobs:
       # Install dependencies with apk (no libpcap needed - CLI is RPC client only)
       - name: Install dependencies with apk
         run: |
-          apk add --no-cache \
+          apk --wait 300 add --no-cache \
             build-base \
             protobuf-dev \
             git \
@@ -192,7 +192,7 @@ jobs:
       # Package Alpine APK
       - name: Package Alpine APK
         run: |
-          apk add --no-cache alpine-sdk sudo
+          apk --wait 300 add --no-cache alpine-sdk sudo
           
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           WORKSPACE_PATH="${GITHUB_WORKSPACE:-$(pwd)}"
@@ -480,7 +480,7 @@ jobs:
           VERSION=$(grep '^version =' ./Cargo.toml | awk '{print $3}' | tr -d '"')
           WORKSPACE_PATH="${GITHUB_WORKSPACE:-$(pwd)}"
           
-          apk add --no-cache aws-cli alpine-sdk
+          apk --wait 300 add --no-cache aws-cli alpine-sdk
           
           # Use the SAME keys saved from the build step (critical for signature consistency)
           mkdir -p "$HOME/.abuild"
