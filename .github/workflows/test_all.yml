@@ -22,7 +22,9 @@ permissions: read-all
 
 jobs:
   test:
-    timeout-minutes: 60
+    # The hosted macOS leg builds the release binary and then the tests
+    # (38-58 min when green, November 2026): 60 cancelled it three times.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
